@@ -640,7 +640,7 @@ def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
     screen = Screen(WIDTH, HEIGHT)
-    draw_border(screen, "Reloj en Python", "Python puro · cero librerías")
+    draw_border(screen, "Reloj en Python", "Ctrl+C: menú · Python puro, cero librerías")
     canvas = Canvas(CLOCK_COLUMNS, CLOCK_ROWS)
     draw_dial(canvas)
     draw_hands(canvas, now["seconds_of_day"])
@@ -733,11 +733,57 @@ def parse_day_month(answer):
     return day, month
 
 
+def parse_theme(answer):
+    index = int(answer) - 1
+    if not 0 <= index < len(THEMES):
+        raise ValueError(answer)
+    return index
+
+
+def choose_theme(state):
+    for index, (name, palette) in enumerate(THEMES):
+        print("   {}{}) {}{}".format(foreground(palette["accent"]), index + 1, name, RESET))
+    state["theme"] = ask("  Tema: ", parse_theme, state["theme"])
+
+
+MENU = [
+    ("1", "Cambiar tema", choose_theme),
+]
+
+
+def show_menu(state):
+    """Print the options and run one; returns False when the user wants to quit."""
+    palette = THEMES[state["theme"]][1]
+    frame, title, muted = foreground(palette["frame"]), foreground(palette["highlight"]), \
+        foreground(palette["muted"])
+    print("\n{}╭──────────────── {}Menú del reloj{} ────────────────╮".format(frame, title, frame))
+    for key, label, _ in MENU + [("0", "Salir", None)]:
+        print("{}│{}  {}{}{}  {:<41}{}│".format(frame, RESET, title, key, RESET, label, frame))
+    print("╰" + "─" * 48 + "╯" + RESET)
+    print(muted + "  Enter vuelve al reloj." + RESET)
+    try:
+        choice = input("  Opción: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return False
+    if choice == "0":
+        return False
+    for key, _, action in MENU:
+        if choice == key:
+            try:
+                action(state)
+            except KeyboardInterrupt:
+                pass
+    return True
+
+
 def main():
     state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
              "world": load_world()}
-    run_clock(state)
-    print("¡Hasta luego! 👋")
+    while True:
+        run_clock(state)
+        if not show_menu(state):
+            break
+    print("\n¡Hasta luego! 👋")
 
 if __name__ == "__main__":
     main()
