@@ -312,12 +312,101 @@ def polar(center_x, center_y, radius, degrees):
     return center_x + radius * sin(radians), center_y - radius * cos(radians)
 
 
+# ---------------------------------------------------------------------------
+# SVG building helpers
+# ---------------------------------------------------------------------------
+
+WIDTH, HEIGHT = 1280, 800
+SANS = "Helvetica, Arial, sans-serif"
+MONO = "DejaVu Sans Mono, Menlo, Consolas, monospace"
+
+PALETTE = {
+    "bg": "#f4f7fb", "face": "#ffffff", "ink": "#1f2a5a", "accent": "#e8402a",
+    "muted": "#8a90a6", "panel": "#ffffff", "highlight": "#8e2b8f",
+}
+
+
+def number(value):
+    """Format numbers compactly so the SVG stays small."""
+    if isinstance(value, float):
+        text = "{:.2f}".format(value).rstrip("0").rstrip(".")
+        return "0" if text == "-0" else text
+    return str(value)
+
+
+def escape(content):
+    return (str(content).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def tag(name, *children, **attributes):
+    """Build an XML element; snake_case attribute names become kebab-case."""
+    parts = [name]
+    for key, value in attributes.items():
+        if value is not None:
+            parts.append('{}="{}"'.format(key.rstrip("_").replace("_", "-"),
+                                          escape(number(value))))
+    opening = " ".join(parts)
+    if not children:
+        return "<{}/>".format(opening)
+    return "<{}>{}</{}>".format(opening, "".join(children), name)
+
+
+def text(content, x, y, size, **attributes):
+    attributes.setdefault("font_family", SANS)
+    attributes.setdefault("text_anchor", "middle")
+    attributes.setdefault("fill", color("ink"))
+    return tag("text", escape(content), x=x, y=y, font_size=size, **attributes)
+
+
+def color(role):
+    """Every themed shape paints with a one-stop gradient, so themes can swap it."""
+    return "url(#c-{})".format(role)
+
+
+def build_palette():
+    gradients = []
+    for role, value in PALETTE.items():
+        stop = tag("stop", offset=0, stop_color=value)
+        gradients.append(tag("linearGradient", stop, id="c-" + role,
+                             gradientUnits="userSpaceOnUse"))
+    return "".join(gradients)
+
+
+def build_header():
+    return (text("Reloj en Python", 48, 70, 40, text_anchor="start", font_weight="bold")
+            + text("100% Python puro · cero librerías · cero HTML/CSS", 50, 102, 18,
+                   text_anchor="start", fill=color("muted")))
+
+
+def build_svg(state):
+    body = [
+        tag("defs", build_palette()),
+        tag("rect", width=WIDTH, height=HEIGHT, fill=color("bg")),
+        build_header(),
+    ]
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            + tag("svg", *body, xmlns="http://www.w3.org/2000/svg",
+                  viewBox="0 0 {} {}".format(WIDTH, HEIGHT)))
+
+
+def output_path():
+    """Write next to this script (__file__ is absolute since Python 3.9)."""
+    folder = __file__.rpartition("/")[0]
+    return (folder + "/" if folder else "") + OUTPUT_FILE
+
+
 def main():
     print("Reloj en Python")
     epoch = read_epoch()
     offset, _, zone_name = zone_offset(load_zone(None), epoch)
     now = local_datetime(epoch, offset)
     print("Hora local ({}):".format(zone_name), format_date(now), format_time(now))
+    state = {"epoch": epoch, "now": now}
+    path = output_path()
+    with open(path, "w", encoding="utf-8") as target:
+        target.write(build_svg(state))
+    print("Reloj generado en: file://" + path)
 
 
 if __name__ == "__main__":
