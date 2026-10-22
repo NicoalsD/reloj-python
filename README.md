@@ -1,14 +1,15 @@
 # 🕰️ Reloj en Python
 
 Reloj analógico y digital que se dibuja **en la terminal**, hecho solo con Python puro:
-sin un solo `import` (ni siquiera de la librería estándar), sin HTML y sin CSS.
+sin librerías (ni siquiera la librería estándar), sin HTML y sin CSS. Los únicos `import`
+son entre los módulos del propio proyecto.
 
 ![Captura del reloj](docs/captura.png)
 
 ## Uso
 
 ```bash
-python3 reloj.py
+python3 main.py
 ```
 
 El reloj se actualiza 10 veces por segundo. Con **Ctrl+C** se abre el menú:
@@ -30,7 +31,7 @@ Con Enter se vuelve al reloj. Cuando suena la alarma, Ctrl+C la apaga.
 
 ## Requisitos
 
-- Python 3.9 o superior
+- Python 3.10 o superior
 - Linux (lee `/proc` y `/usr/share/zoneinfo`)
 - Una terminal con colores de 24 bits, de al menos **100 × 27** caracteres
   (Warp, GNOME Terminal, Ptyxis, Kitty, Konsole…)
@@ -75,16 +76,48 @@ Con Enter se vuelve al reloj. Cuando suena la alarma, Ctrl+C la apaga.
 - Si `/proc/stat` no está disponible se usa el reloj de hardware, que en algunos equipos
   guarda la hora local en vez de UTC.
 
-## Estructura
+## Arquitectura
 
-Todo está en `reloj.py`, porque repartirlo en módulos exigiría `import`. Secciones:
+```
+main.py                     punto de entrada
+reloj/
+├── config.py               ajustes: tamaños, zonas del mundo, tiempos
+├── app.py                  ClockApp: une las capas, bucle en vivo y menú
+├── core/                   lógica pura, sin pantalla
+│   ├── system_clock.py     SystemClock: hora desde /proc
+│   ├── dates.py            calendario y LocalTime
+│   ├── timezones.py        TimeZone y PosixRule (lector de TZif)
+│   ├── trig.py             seno y coseno con series de Taylor
+│   ├── spanish.py          nombres, formatos y la hora en palabras
+│   └── parsing.py          validación de lo que escribe el usuario
+├── features/               herramientas con estado
+│   ├── alarm.py  stopwatch.py  pomodoro.py  countdown.py
+│   ├── world.py            relojes del mundo
+│   ├── effects.py          al revés, giro y arcoíris
+│   └── toolbox.py          Toolbox: agrupa todas las herramientas
+└── ui/                     todo lo que dibuja
+    ├── colors.py  terminal.py  themes.py
+    ├── canvas.py           lienzo braille
+    ├── screen.py           cuadrícula de caracteres → cuadro ANSI
+    ├── analog.py  big_digits.py  widgets.py
+    ├── dashboard.py        Dashboard: compone la pantalla
+    └── menu.py             menú de Ctrl+C y preguntas
+tests/                      pruebas con asserts simples
+```
 
-1. Hora del sistema
-2. Calendario
-3. Zonas horarias (TZif + reglas POSIX)
-4. Trigonometría
-5. Lienzo braille y dibujo del reloj analógico
-6. Pantalla con colores ANSI y temas
-7. Dígitos grandes y textos en español
-8. Diseño de la pantalla y herramientas (alarma, cronómetro, pomodoro, cuenta atrás)
-9. Bucle en vivo y menú
+Las dependencias van en un solo sentido: `core` ← `features` ← `ui` ← `app`.
+`core` no sabe nada de la pantalla, las herramientas reciben el tiempo como parámetro
+(no leen el reloj por su cuenta) y el `Dashboard` solo lee lo que recibe. Por eso cada
+pieza se puede probar sola.
+
+Para agregar una ciudad, cambiar el tamaño de la pantalla o la duración del pomodoro
+basta con editar `reloj/config.py`.
+
+## Pruebas
+
+```bash
+python3 -m tests
+```
+
+Tampoco usan librerías: `tests/__main__.py` es un ejecutor propio que corre cada función
+`test_*` y termina con error si alguna falla.
