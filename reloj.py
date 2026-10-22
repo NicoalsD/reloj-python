@@ -646,11 +646,45 @@ def build_world_panel(state):
     return tag("g", *parts)
 
 
+def build_button(element_id, label, x, y, width=130):
+    return tag("g",
+               tag("rect", x=x, y=y, width=width, height=40, rx=20, fill=color("highlight")),
+               text(label, x + width / 2, y + 26, 17, fill=color("panel"), font_weight="bold"),
+               id=element_id, cursor="pointer")
+
+
+def build_stopwatch_panel():
+    """Starts on 'Iniciar' (clicking again restarts) and goes back to zero on 'Reiniciar'."""
+    cx, cy, radius = CARD_X + CARD_WIDTH / 2, CARD_Y + 120, 95
+    start, stop = "swStart.click", "swReset.click"
+    parts = [build_dial(cx, cy, radius, with_numbers=False)]
+    for step in range(1, 13):
+        x, y = polar(cx, cy, radius * 0.7, step * 30)
+        parts.append(text(step * 5, x, y + 5, 14, fill=color("muted")))
+    parts.append(tag("g",
+                     tag("line", x1=cx, y1=cy + 15, x2=cx, y2=cy - radius * 0.9,
+                         stroke=color("accent"), stroke_width=2.5, stroke_linecap="round"),
+                     rotation(cx, cy, 60, 0, begin=start, end=stop)))
+    parts.append(tag("circle", cx=cx, cy=cy, r=5, fill=color("accent")))
+    y, size = CARD_Y + 268, 40
+    parts += [
+        ticker(two_digits(60), cx - 72, y, size, 60, start, stop, font_weight="bold"),
+        text(":", cx - 36, y - 3, size, font_family=MONO),
+        ticker(two_digits(60), cx, y, size, 1, start, stop, font_weight="bold"),
+        text(".", cx + 34, y, size, font_family=MONO),
+        ticker([str(tenth) for tenth in range(10)], cx + 60, y, size, 0.1, start, stop,
+               font_weight="bold", fill=color("accent")),
+        build_button("swStart", "▶ Iniciar", cx - 140, CARD_Y + 300),
+        build_button("swReset", "↺ Reiniciar", cx + 10, CARD_Y + 300),
+    ]
+    return tag("g", *parts)
+
+
 def build_panels(state):
     center = CARD_X + CARD_WIDTH / 2
     return build_tabs([
         ("world", "🌎 Mundo", build_world_panel(state)),
-        ("stopwatch", "⏱️ Cronómetro", text("Cronómetro", center, 540, 22)),
+        ("stopwatch", "⏱️ Cronómetro", build_stopwatch_panel()),
         ("pomodoro", "🍅 Pomodoro", text("Pomodoro", center, 540, 22)),
         ("fun", "🎉 Divertido", text("Modo divertido", center, 540, 22)),
     ])
