@@ -420,8 +420,13 @@ def past(offset):
     return "-{:.3f}s".format(offset)
 
 
-def ticker(labels, x, y, size, step, begin, end=None, width=None, **style):
-    """Odometer: a column of labels behind a one-line window that jumps every 'step' s."""
+def ticker(labels, x, y, size, step, begin, end=None, width=None, first=0,
+           repeat="indefinite", **style):
+    """Odometer: a column of labels behind a one-line window that jumps every 'step' s.
+
+    Before 'begin' (or after the animation ends) the label at index 0 is shown;
+    while running it walks from index 'first' to the last one.
+    """
     clip_id = unique_id("clip")
     line = size * 1.4
     if width is None:
@@ -431,10 +436,11 @@ def ticker(labels, x, y, size, step, begin, end=None, width=None, **style):
                                  width=width, height=size * 1.25), id=clip_id)
     labels_svg = [text(label, x, y + index * line, size, **style)
                   for index, label in enumerate(labels)]
-    values = ";".join("0 {}".format(number(-index * line)) for index in range(len(labels)))
+    shown = range(first, len(labels))
+    values = ";".join("0 {}".format(number(-index * line)) for index in shown)
     motion = tag("animateTransform", attributeName="transform", type="translate",
-                 values=values, calcMode="discrete", dur="{}s".format(number(step * len(labels))),
-                 begin=begin, end=end, repeatCount="indefinite")
+                 values=values, calcMode="discrete", dur="{}s".format(number(step * len(shown))),
+                 begin=begin, end=end, repeatCount=repeat)
     return window + tag("g", tag("g", *(labels_svg + [motion])),
                         clip_path="url(#{})".format(clip_id))
 
@@ -680,12 +686,50 @@ def build_stopwatch_panel():
     return tag("g", *parts)
 
 
+POMODORO_MINUTES = 25
+
+
+def build_pomodoro_panel():
+    """25 minute focus timer: a ring that empties and a countdown in the middle."""
+    cx, cy, radius = CARD_X + CARD_WIDTH / 2, CARD_Y + 120, 95
+    total = POMODORO_MINUTES * 60
+    start, stop = "pomoStart.click", "pomoReset.click"
+    circumference = 2 * PI * radius
+    progress = tag("circle",
+                   tag("animate", attributeName="stroke-dashoffset", values="0;{}".format(
+                       number(circumference)), dur="{}s".format(total), begin=start, end=stop),
+                   cx=cx, cy=cy, r=radius, fill="none", stroke=color("accent"), stroke_width=14,
+                   stroke_linecap="round", stroke_dasharray=number(circumference),
+                   transform="rotate(-90 {} {})".format(cx, cy))
+    minutes = ["{:02d}".format(POMODORO_MINUTES - index) for index in range(POMODORO_MINUTES + 1)]
+    seconds = ["{:02d}".format((60 - index) % 60) for index in range(60)]
+    size = 44
+    done = tag("set", attributeName="visibility", to="visible",
+               begin="{}+{}s".format(start, total), end=stop, dur="120s")
+    return tag("g",
+               tag("circle", cx=cx, cy=cy, r=radius, fill=color("face"), stroke=color("muted"),
+                   stroke_opacity=0.3, stroke_width=14),
+               progress,
+               ticker(minutes, cx - 38, cy + 15, size, 60, "{}+1s".format(start), stop,
+                      first=1, repeat=None, font_weight="bold"),
+               text(":", cx, cy + 12, size, font_family=MONO),
+               ticker(seconds, cx + 38, cy + 15, size, 1, start, stop,
+                      repeat=POMODORO_MINUTES, font_weight="bold"),
+               text("🍅 {} minutos de enfoque".format(POMODORO_MINUTES), cx, CARD_Y + 250, 18,
+                    fill=color("muted")),
+               tag("g", text("¡Tiempo cumplido! Descansa 5 minutos ☕", cx, CARD_Y + 280, 20,
+                             fill=color("accent"), font_weight="bold"),
+                   done, visibility="hidden"),
+               build_button("pomoStart", "▶ Iniciar", cx - 140, CARD_Y + 300),
+               build_button("pomoReset", "↺ Reiniciar", cx + 10, CARD_Y + 300))
+
+
 def build_panels(state):
     center = CARD_X + CARD_WIDTH / 2
     return build_tabs([
         ("world", "🌎 Mundo", build_world_panel(state)),
         ("stopwatch", "⏱️ Cronómetro", build_stopwatch_panel()),
-        ("pomodoro", "🍅 Pomodoro", text("Pomodoro", center, 540, 22)),
+        ("pomodoro", "🍅 Pomodoro", build_pomodoro_panel()),
         ("fun", "🎉 Divertido", text("Modo divertido", center, 540, 22)),
     ])
 
