@@ -582,6 +582,16 @@ def mix(first, second, ratio):
     return tuple(int(a + (b - a) * ratio) for a, b in zip(first, second))
 
 
+def hue_color(hue):
+    """Fully saturated RGB for a hue in [0, 1), without colorsys."""
+    sector = int(hue * 6) % 6
+    rise = hue * 6 - int(hue * 6)
+    fall = 1 - rise
+    channels = [(1, rise, 0), (fall, 1, 0), (0, 1, rise),
+                (0, fall, 1), (rise, 0, 1), (1, 0, fall)][sector]
+    return tuple(int(80 + 175 * value) for value in channels)
+
+
 def draw_border(screen, title, footer):
     screen.put(0, 0, "╭" + "─" * (WIDTH - 2) + "╮", "frame")
     for y in range(1, HEIGHT - 1):
@@ -592,12 +602,17 @@ def draw_border(screen, title, footer):
     screen.put(3, HEIGHT - 1, " " + footer + " ", "muted")
 
 
-def draw_big_time(screen, y, content, palette):
-    """Block digits with a vertical gradient from 'highlight' to 'accent'."""
+def draw_big_time(screen, y, content, palette, rainbow=None):
+    """Block digits with a vertical gradient, or a moving rainbow when 'rainbow' is a phase."""
     rows = big_text(content)
     x = PANEL_LEFT + (PANEL_RIGHT - PANEL_LEFT - len(rows[0])) // 2
     for index, row in enumerate(rows):
-        screen.put(x, y + index, row, mix(palette["highlight"], palette["accent"], index / 4))
+        if rainbow is None:
+            screen.put(x, y + index, row, mix(palette["highlight"], palette["accent"], index / 4))
+            continue
+        for column, character in enumerate(row):
+            screen.put(x + column, y + index, character,
+                       hue_color((rainbow + column / 45.0 + index / 30.0) % 1.0))
 
 
 def section_title(screen, y, title):
@@ -774,7 +789,8 @@ def build_frame(state):
     if state["reverse"]:
         screen.center(HEIGHT - 2, "~ modo al revés ~", "muted", 3, 3 + CLOCK_COLUMNS)
     screen.draw_canvas(canvas, 3, 2)
-    draw_big_time(screen, 3, format_time(now), palette)
+    rainbow = (state["uptime"] / 4.0) % 1.0 if state["rainbow"] else None
+    draw_big_time(screen, 3, format_time(now), palette, rainbow)
     date = format_date(now)
     screen.center(9, date[0].upper() + date[1:], "muted", PANEL_LEFT, PANEL_RIGHT)
     screen.center(10, "~ " + greeting(now["hour"]) + " ~", "highlight", PANEL_LEFT, PANEL_RIGHT)
@@ -832,6 +848,8 @@ def run_clock(state):
                     bell = "\a"
             if pomo_end is not None and state["uptime"] - pomo_end > 300:
                 state["pomo_end"] = None   # the break is over
+            if state["rainbow"]:
+                palette = dict(palette, frame=hue_color((state["uptime"] / 4.0) % 1.0))
             if is_ringing(state):
                 palette = dict(palette)
                 if int(state["uptime"] * 2) % 2 == 0:
@@ -934,6 +952,10 @@ def spin_clock(state):
     state["spin_start"] = read_uptime()
 
 
+def toggle_rainbow(state):
+    state["rainbow"] = not state["rainbow"]
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
     ("2", "Programar o quitar la alarma", choose_alarm),
@@ -943,6 +965,7 @@ MENU = [
     ("6", "Cambiar la fecha de la cuenta atrás", choose_countdown),
     ("7", "Reloj al revés: activar o desactivar", toggle_reverse),
     ("8", "¡Girar el reloj!", spin_clock),
+    ("9", "Modo arcoíris: activar o desactivar", toggle_rainbow),
 ]
 
 
@@ -976,7 +999,8 @@ def main():
              "world": load_world(), "alarm": None, "alarm_day": None,
              "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0,
              "pomo_end": None, "countdown": (24, 12),
-             "reverse": False, "spin_start": -10.0}
+             "reverse": False, "spin_start": -10.0,
+             "rainbow": False}
     while True:
         run_clock(state)
         if is_ringing(state):
