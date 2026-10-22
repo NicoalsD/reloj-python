@@ -605,6 +605,37 @@ def section_title(screen, y, title):
     screen.center(y, "{} {} {}".format(line, title, line), "frame", PANEL_LEFT, PANEL_RIGHT)
 
 
+QUARTER_SYMBOLS = "◴◷◶◵"
+
+
+def draw_world(screen, y, state):
+    section_title(screen, y, "Relojes del mundo")
+    for index, (city, zone) in enumerate(state["world"]):
+        row = y + 1 + index
+        if zone is None:
+            screen.put(PANEL_LEFT + 2, row, city + ": zona no disponible", "muted")
+            continue
+        offset = zone_offset(zone, state["epoch"])[0]
+        moment = local_datetime(state["epoch"], offset)
+        screen.put(PANEL_LEFT + 2, row, QUARTER_SYMBOLS[moment["minute"] // 15], "accent")
+        screen.put(PANEL_LEFT + 4, row, city, "ink")
+        screen.put(PANEL_LEFT + 17, row, format_time(moment), "highlight")
+        screen.put(PANEL_LEFT + 28, row, format_utc_offset(offset), "muted")
+        screen.put(PANEL_LEFT + 37, row, relative_day(moment["days"], state["now"]["days"]),
+                   "muted")
+
+
+def load_world():
+    """Parse every world zone once; a missing file just shows a notice."""
+    world = []
+    for city, name in WORLD_ZONES:
+        try:
+            world.append((city, load_zone(name)))
+        except (OSError, ValueError):
+            world.append((city, None))
+    return world
+
+
 def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
@@ -620,6 +651,7 @@ def build_frame(state):
     screen.center(10, "~ " + greeting(now["hour"]) + " ~", "highlight", PANEL_LEFT, PANEL_RIGHT)
     screen.center(11, "« " + time_in_words(now["hour"], now["minute"]) + " »", "ink",
                   PANEL_LEFT, PANEL_RIGHT)
+    draw_world(screen, 13, state)
     return screen
 
 
@@ -702,7 +734,8 @@ def parse_day_month(answer):
 
 
 def main():
-    state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None)}
+    state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
+             "world": load_world()}
     run_clock(state)
     print("¡Hasta luego! 👋")
 
