@@ -753,7 +753,17 @@ def build_fun_panel(state):
     return tag("g",
                text("La hora en palabras", cx, CARD_Y + 35, 15, fill=color("muted")),
                ticker(phrases, cx, CARD_Y + 70, 26, 60, past(seconds), width=CARD_WIDTH - 20,
-                      font_family=SANS, font_weight="bold", fill=color("highlight")))
+                      font_family=SANS, font_weight="bold", fill=color("highlight")),
+               build_reverse_clock(CARD_X + 120, CARD_Y + 170, seconds))
+
+
+def build_reverse_clock(cx, cy, seconds):
+    """Same time, but the numbers and the hands go counterclockwise."""
+    radius = 62
+    return tag("g",
+               build_dial(cx, cy, radius, direction=-1),
+               build_hands(cx, cy, radius, seconds, direction=-1),
+               text("🔄 Reloj al revés", cx, cy + radius + 28, 16, font_weight="bold"))
 
 
 def build_panels(state):
