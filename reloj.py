@@ -320,10 +320,16 @@ WIDTH, HEIGHT = 1280, 800
 SANS = "Helvetica, Arial, sans-serif"
 MONO = "DejaVu Sans Mono, Menlo, Consolas, monospace"
 
-PALETTE = {
-    "bg": "#f4f7fb", "face": "#ffffff", "ink": "#1f2a5a", "accent": "#e8402a",
-    "muted": "#8a90a6", "panel": "#ffffff", "highlight": "#8e2b8f",
-}
+THEMES = [
+    ("Clásico", {"bg": "#f4f7fb", "face": "#ffffff", "ink": "#1f2a5a", "accent": "#e8402a",
+                 "muted": "#8a90a6", "panel": "#ffffff", "highlight": "#8e2b8f"}),
+    ("Neón", {"bg": "#0d0221", "face": "#1a0b3d", "ink": "#f4f1ff", "accent": "#ff2a6d",
+              "muted": "#9d8fd6", "panel": "#170a33", "highlight": "#05d9e8"}),
+    ("Matrix", {"bg": "#000000", "face": "#03170a", "ink": "#39ff14", "accent": "#c6ff00",
+                "muted": "#1f8f3a", "panel": "#04140a", "highlight": "#00ff9c"}),
+    ("Atardecer", {"bg": "#fde2c8", "face": "#fff7ef", "ink": "#4a1942", "accent": "#ff6b35",
+                   "muted": "#b5838d", "panel": "#fff1e3", "highlight": "#e63946"}),
+]
 
 
 def number(value):
@@ -364,13 +370,31 @@ def color(role):
     return "url(#c-{})".format(role)
 
 
-def build_palette():
+def build_palette(initial_theme):
+    """One gradient per color role; clicking a theme button swaps every stop color."""
     gradients = []
-    for role, value in PALETTE.items():
-        stop = tag("stop", offset=0, stop_color=value)
+    for role, value in THEMES[initial_theme][1].items():
+        switches = [tag("set", attributeName="stop-color", to=palette[role],
+                        begin="theme{}.click".format(index), fill="freeze")
+                    for index, (_, palette) in enumerate(THEMES)]
+        stop = tag("stop", *switches, offset=0, stop_color=value)
         gradients.append(tag("linearGradient", stop, id="c-" + role,
                              gradientUnits="userSpaceOnUse"))
     return "".join(gradients)
+
+
+def build_theme_buttons():
+    """Each button is painted with its own theme so it works as a preview."""
+    y = 752
+    parts = [text("Tema", 795, y + 6, 18, text_anchor="end", fill=color("muted"))]
+    for index, (name, palette) in enumerate(THEMES):
+        x = 810 + index * 110
+        parts.append(tag("g",
+                         tag("rect", x=x, y=y - 18, width=100, height=36, rx=18,
+                             fill=palette["bg"], stroke=palette["accent"], stroke_width=2),
+                         text(name, x + 50, y + 6, 16, fill=palette["ink"], font_weight="bold"),
+                         id="theme{}".format(index), cursor="pointer"))
+    return tag("g", *parts)
 
 
 def build_header():
@@ -539,12 +563,13 @@ def build_greeting(state):
 
 def build_svg(state):
     body = [
-        tag("defs", build_palette()),
+        tag("defs", build_palette(state.get("theme", 0))),
         tag("rect", width=WIDTH, height=HEIGHT, fill=color("bg")),
         build_header(),
         build_main_clock(state),
         build_digital(state),
         build_greeting(state),
+        build_theme_buttons(),
     ]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             + tag("svg", *body, xmlns="http://www.w3.org/2000/svg",
