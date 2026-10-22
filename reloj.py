@@ -815,6 +815,7 @@ FRAME_SECONDS = 0.1
 ENTER_SCREEN = ESCAPE + "?1049h" + ESCAPE + "?25l"   # alternate screen, hide cursor
 LEAVE_SCREEN = ESCAPE + "?25h" + ESCAPE + "?1049l"
 HOME = ESCAPE + "H"
+CLEAR = ESCAPE + "2J" + HOME
 
 
 def wait_until(uptime_target):
@@ -864,7 +865,10 @@ def run_clock(state):
     except KeyboardInterrupt:
         pass
     finally:
-        print(LEAVE_SCREEN, end="", flush=True)
+        try:
+            print(LEAVE_SCREEN, end="", flush=True)
+        except KeyboardInterrupt:
+            print(LEAVE_SCREEN, end="", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -974,7 +978,8 @@ def show_menu(state):
     palette = THEMES[state["theme"]][1]
     frame, title, muted = foreground(palette["frame"]), foreground(palette["highlight"]), \
         foreground(palette["muted"])
-    print("\n{}╭──────────────── {}Menú del reloj{} ────────────────╮".format(frame, title, frame))
+    print(CLEAR + "{}╭──────────────── {}Menú del reloj{} ────────────────╮".format(
+        frame, title, frame))
     for key, label, _ in MENU + [("0", "Salir", None)]:
         print("{}│{}  {}{}{}  {:<41}{}│".format(frame, RESET, title, key, RESET, label, frame))
     print("╰" + "─" * 48 + "╯" + RESET)
