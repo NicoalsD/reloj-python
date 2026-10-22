@@ -399,6 +399,52 @@ def build_dial(cx, cy, radius, direction=1, with_numbers=True):
     return tag("g", *parts)
 
 
+def points(*pairs):
+    return " ".join("{},{}".format(number(float(x)), number(float(y))) for x, y in pairs)
+
+
+def rotation(cx, cy, duration, offset, direction=1, ticks=0, begin=None, end=None):
+    """Endless SMIL rotation around (cx, cy).
+
+    A negative begin time starts the animation 'offset' seconds in the past,
+    which is how the hands start exactly at the current time.
+    """
+    if ticks:
+        values = ";".join("{} {} {}".format(number(360.0 * step / ticks * direction), cx, cy)
+                          for step in range(ticks))
+        mode = "discrete"
+    else:
+        values = "0 {cx} {cy};{turn} {cx} {cy}".format(cx=cx, cy=cy, turn=360 * direction)
+        mode = "linear"
+    return tag("animateTransform", attributeName="transform", type="rotate", values=values,
+               calcMode=mode, dur="{}s".format(duration),
+               begin=begin or "-{:.3f}s".format(offset), end=end, repeatCount="indefinite")
+
+
+def build_hands(cx, cy, radius, seconds_of_day, direction=1, with_seconds=True):
+    """Hour, minute and second hands, all drawn pointing at 12 and then rotated."""
+    hour = tag("g", tag("polygon", fill=color("ink"), points=points(
+        (cx, cy + radius * 0.08), (cx - radius * 0.035, cy),
+        (cx, cy - radius * 0.5), (cx + radius * 0.035, cy))),
+        rotation(cx, cy, 43200, seconds_of_day % 43200, direction))
+    minute = tag("g", tag("polygon", fill=color("ink"), points=points(
+        (cx, cy + radius * 0.1), (cx - radius * 0.022, cy),
+        (cx, cy - radius * 0.82), (cx + radius * 0.022, cy))),
+        rotation(cx, cy, 3600, seconds_of_day % 3600, direction))
+    parts = [hour, minute]
+    if with_seconds:
+        parts.append(tag("g",
+                         tag("line", x1=cx, y1=cy + radius * 0.18, x2=cx, y2=cy - radius * 0.9,
+                             stroke=color("accent"), stroke_width=max(1.2, radius / 120),
+                             stroke_linecap="round"),
+                         tag("circle", cx=cx, cy=cy + radius * 0.14, r=radius * 0.025,
+                             fill=color("accent")),
+                         rotation(cx, cy, 60, seconds_of_day % 60, direction, ticks=60)))
+    parts.append(tag("circle", cx=cx, cy=cy, r=radius * 0.035, fill=color("ink")))
+    parts.append(tag("circle", cx=cx, cy=cy, r=radius * 0.014, fill=color("accent")))
+    return tag("g", *parts)
+
+
 CLOCK_X, CLOCK_Y, CLOCK_RADIUS = 380, 445, 290
 
 
@@ -406,8 +452,10 @@ def build_main_clock(state):
     shadow = tag("filter", tag("feDropShadow", dx=0, dy=10, stdDeviation=14,
                                flood_color="#000000", flood_opacity=0.22),
                  id="shadow", x="-20%", y="-20%", width="140%", height="140%")
-    return tag("g", shadow, build_dial(CLOCK_X, CLOCK_Y, CLOCK_RADIUS),
-               id="main-clock", filter="url(#shadow)")
+    seconds = state["now"]["seconds_of_day"]
+    return tag("g", shadow,
+               tag("g", build_dial(CLOCK_X, CLOCK_Y, CLOCK_RADIUS), filter="url(#shadow)"),
+               build_hands(CLOCK_X, CLOCK_Y, CLOCK_RADIUS, seconds), id="main-clock")
 
 
 def build_svg(state):
