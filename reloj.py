@@ -518,14 +518,14 @@ def big_width(content):
 
 def greeting(hour):
     if hour < 6:
-        return "¡A dormir, búho nocturno! 🦉"
+        return "¡A dormir, búho nocturno!"
     if hour < 12:
-        return "¡Buenos días! ☀️"
+        return "¡Buenos días!"
     if hour < 14:
-        return "¡Hora de almorzar! 🍽️"
+        return "¡Hora de almorzar!"
     if hour < 19:
-        return "¡Buenas tardes! 🌤️"
-    return "¡Buenas noches! 🌙"
+        return "¡Buenas tardes!"
+    return "¡Buenas noches!"
 
 
 WORLD_ZONES = [
@@ -617,6 +617,9 @@ def build_frame(state):
     draw_big_time(screen, 3, format_time(now), palette)
     date = format_date(now)
     screen.center(9, date[0].upper() + date[1:], "muted", PANEL_LEFT, PANEL_RIGHT)
+    screen.center(10, "~ " + greeting(now["hour"]) + " ~", "highlight", PANEL_LEFT, PANEL_RIGHT)
+    screen.center(11, "« " + time_in_words(now["hour"], now["minute"]) + " »", "ink",
+                  PANEL_LEFT, PANEL_RIGHT)
     return screen
 
 
