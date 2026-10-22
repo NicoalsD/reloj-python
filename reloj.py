@@ -89,10 +89,46 @@ def days_in_month(year, month):
     return days_from_civil(next_year, next_month, 1) - days_from_civil(year, month, 1)
 
 
+DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"]
+MONTH_NAMES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+               "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def local_datetime(epoch, utc_offset):
+    """Split an epoch into calendar fields for a given UTC offset in seconds."""
+    local = epoch + utc_offset
+    days = int(local // SECONDS_PER_DAY)
+    seconds_of_day = local - days * SECONDS_PER_DAY
+    year, month, day = civil_from_days(days)
+    whole = int(seconds_of_day)
+    return {
+        "year": year,
+        "month": month,
+        "day": day,
+        "days": days,
+        "weekday": weekday_from_days(days),
+        "hour": whole // 3600,
+        "minute": whole // 60 % 60,
+        "second": whole % 60,
+        "seconds_of_day": seconds_of_day,
+    }
+
+
+def format_date(moment):
+    """Return a Spanish long date such as 'martes, 21 de octubre de 2026'."""
+    return "{}, {} de {} de {}".format(DAY_NAMES[moment["weekday"]], moment["day"],
+                                      MONTH_NAMES[moment["month"] - 1], moment["year"])
+
+
+def format_time(moment):
+    return "{:02d}:{:02d}:{:02d}".format(moment["hour"], moment["minute"], moment["second"])
+
+
 def main():
     print("Reloj en Python")
     epoch = read_epoch()
-    print("Fecha UTC:", civil_from_days(int(epoch // SECONDS_PER_DAY)))
+    now = local_datetime(epoch, 0)
+    print("UTC:", format_date(now), format_time(now))
 
 
 if __name__ == "__main__":
