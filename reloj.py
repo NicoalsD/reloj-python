@@ -523,9 +523,14 @@ def build_main_clock(state):
                                flood_color="#000000", flood_opacity=0.22),
                  id="shadow", x="-20%", y="-20%", width="140%", height="140%")
     seconds = state["now"]["seconds_of_day"]
+    spin = tag("animateTransform", attributeName="transform", type="rotate",
+               values="0 {x} {y};360 {x} {y}".format(x=CLOCK_X, y=CLOCK_Y), dur="1.2s",
+               begin="spinButton.click;mainClock.click", calcMode="spline",
+               keyTimes="0;1", keySplines="0.65 0 0.35 1")
     return tag("g", shadow,
                tag("g", build_dial(CLOCK_X, CLOCK_Y, CLOCK_RADIUS), filter="url(#shadow)"),
-               build_hands(CLOCK_X, CLOCK_Y, CLOCK_RADIUS, seconds), id="main-clock")
+               build_hands(CLOCK_X, CLOCK_Y, CLOCK_RADIUS, seconds), spin,
+               id="mainClock", cursor="pointer")
 
 
 PANEL_X = 1000
@@ -754,7 +759,12 @@ def build_fun_panel(state):
                text("La hora en palabras", cx, CARD_Y + 35, 15, fill=color("muted")),
                ticker(phrases, cx, CARD_Y + 70, 26, 60, past(seconds), width=CARD_WIDTH - 20,
                       font_family=SANS, font_weight="bold", fill=color("highlight")),
-               build_reverse_clock(CARD_X + 120, CARD_Y + 170, seconds))
+               build_reverse_clock(CARD_X + 120, CARD_Y + 170, seconds),
+               build_button("spinButton", "🌀 ¡Girar!", CARD_X + 290, CARD_Y + 130),
+               text("Dale una vuelta al reloj", CARD_X + 355, CARD_Y + 200, 14,
+                    fill=color("muted")),
+               text("(o haz clic en la esfera)", CARD_X + 355, CARD_Y + 220, 14,
+                    fill=color("muted")))
 
 
 def build_reverse_clock(cx, cy, seconds):
