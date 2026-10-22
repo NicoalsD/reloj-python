@@ -278,11 +278,17 @@ def zone_offset(zone, epoch):
     return zone["types"][current]
 
 
+def load_zone(name):
+    """Load a zone by name (e.g. 'Asia/Tokyo'); None means the system zone."""
+    return parse_tzif(LOCAL_ZONE_PATH if name is None else ZONEINFO_DIR + name)
+
+
 def main():
     print("Reloj en Python")
     epoch = read_epoch()
-    now = local_datetime(epoch, 0)
-    print("UTC:", format_date(now), format_time(now))
+    offset, _, zone_name = zone_offset(load_zone(None), epoch)
+    now = local_datetime(epoch, offset)
+    print("Hora local ({}):".format(zone_name), format_date(now), format_time(now))
 
 
 if __name__ == "__main__":
