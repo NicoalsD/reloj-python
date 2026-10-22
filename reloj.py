@@ -316,6 +316,68 @@ def polar(center_x, center_y, radius, degrees):
 
 
 # ---------------------------------------------------------------------------
+# Braille canvas: every terminal cell holds a 2 x 4 grid of dots
+# ---------------------------------------------------------------------------
+
+BRAILLE_BASE = 0x2800
+BRAILLE_BITS = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x80]]
+
+
+class Canvas:
+    """Dot canvas; pixels are square because a cell is twice as tall as wide."""
+
+    def __init__(self, columns, rows):
+        self.columns, self.rows = columns, rows
+        self.width, self.height = columns * 2, rows * 4
+        self.bits = [[0] * columns for _ in range(rows)]
+        self.colors = [[None] * columns for _ in range(rows)]
+        self.labels = {}
+
+    def dot(self, x, y, color):
+        x, y = int(x + 0.5), int(y + 0.5)
+        if 0 <= x < self.width and 0 <= y < self.height:
+            row, column = y // 4, x // 2
+            self.bits[row][column] |= BRAILLE_BITS[y % 4][x % 2]
+            self.colors[row][column] = color
+
+    def line(self, x1, y1, x2, y2, color, thickness=0.0):
+        """Straight line; 'thickness' adds parallel lines on both sides."""
+        length = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5 or 1.0
+        normal_x, normal_y = -(y2 - y1) / length, (x2 - x1) / length
+        steps = int(length * 2) + 1
+        shift = -thickness
+        while shift <= thickness:
+            for step in range(steps + 1):
+                ratio = step / steps
+                self.dot(x1 + (x2 - x1) * ratio + normal_x * shift,
+                         y1 + (y2 - y1) * ratio + normal_y * shift, color)
+            shift += 0.5
+
+    def circle(self, cx, cy, radius, color):
+        steps = int(radius * 8) + 8
+        for step in range(steps):
+            self.dot(*polar(cx, cy, radius, 360.0 * step / steps), color=color)
+
+    def label(self, x, y, content, color):
+        """Plain text placed over the dots, centered on the pixel (x, y)."""
+        row, column = int(y) // 4, int(x) // 2 - len(content) // 2
+        for index, character in enumerate(content):
+            self.labels[(row, column + index)] = (character, color)
+
+    def cells(self):
+        """Yield (row, column, character, color) for every cell."""
+        for row in range(self.rows):
+            for column in range(self.columns):
+                if (row, column) in self.labels:
+                    yield (row, column) + self.labels[(row, column)]
+                elif self.bits[row][column]:
+                    yield (row, column, chr(BRAILLE_BASE + self.bits[row][column]),
+                           self.colors[row][column])
+                else:
+                    yield row, column, " ", None
+
+
+# ---------------------------------------------------------------------------
 # Spanish texts
 # ---------------------------------------------------------------------------
 
@@ -413,6 +475,14 @@ def main():
     offset, _, zone_name = zone_offset(load_zone(None), epoch)
     now = local_datetime(epoch, offset)
     print("Hora local ({}): {} {}".format(zone_name, format_date(now), format_time(now)))
+    canvas = Canvas(40, 20)
+    canvas.circle(40, 40, 38, None)
+    canvas.line(40, 40, 40, 8, None, thickness=1)
+    canvas.label(40, 8, "12", None)
+    lines = [""] * canvas.rows
+    for row, _, character, _ in canvas.cells():
+        lines[row] += character
+    print("\n".join(lines))
 
 
 if __name__ == "__main__":
