@@ -379,6 +379,42 @@ def build_header():
                    text_anchor="start", fill=color("muted")))
 
 
+_id_counter = [0]
+
+
+def unique_id(prefix):
+    _id_counter[0] += 1
+    return "{}-{}".format(prefix, _id_counter[0])
+
+
+def past(offset):
+    """SMIL begin value that starts an animation 'offset' seconds ago."""
+    return "-{:.3f}s".format(offset)
+
+
+def ticker(labels, x, y, size, step, begin, end=None, width=None, **style):
+    """Odometer: a column of labels behind a one-line window that jumps every 'step' s."""
+    clip_id = unique_id("clip")
+    line = size * 1.4
+    if width is None:
+        width = size * (0.62 * max(len(str(label)) for label in labels) + 0.2)
+    style.setdefault("font_family", MONO)
+    window = tag("clipPath", tag("rect", x=x - width / 2, y=y - size * 0.95,
+                                 width=width, height=size * 1.25), id=clip_id)
+    labels_svg = [text(label, x, y + index * line, size, **style)
+                  for index, label in enumerate(labels)]
+    values = ";".join("0 {}".format(number(-index * line)) for index in range(len(labels)))
+    motion = tag("animateTransform", attributeName="transform", type="translate",
+                 values=values, calcMode="discrete", dur="{}s".format(number(step * len(labels))),
+                 begin=begin, end=end, repeatCount="indefinite")
+    return window + tag("g", tag("g", *(labels_svg + [motion])),
+                        clip_path="url(#{})".format(clip_id))
+
+
+def two_digits(count):
+    return ["{:02d}".format(value) for value in range(count)]
+
+
 def build_dial(cx, cy, radius, direction=1, with_numbers=True):
     """Clock face: rim, 60 minute ticks, thicker hour ticks and 1 to 12."""
     parts = [tag("circle", cx=cx, cy=cy, r=radius, fill=color("face"),
@@ -458,12 +494,36 @@ def build_main_clock(state):
                build_hands(CLOCK_X, CLOCK_Y, CLOCK_RADIUS, seconds), id="main-clock")
 
 
+PANEL_X = 1000
+
+
+def build_digital(state):
+    """Live HH:MM:SS made of three odometers plus blinking colons."""
+    seconds = state["now"]["seconds_of_day"]
+    y, size = 175, 84
+    parts = [
+        ticker(two_digits(24), PANEL_X - 148, y, size, 3600, past(seconds), font_weight="bold"),
+        ticker(two_digits(60), PANEL_X, y, size, 60, past(seconds % 3600), font_weight="bold"),
+        ticker(two_digits(60), PANEL_X + 148, y, size, 1, past(seconds % 60),
+               font_weight="bold", fill=color("accent")),
+    ]
+    blink = tag("animate", attributeName="opacity", values="1;0.25", calcMode="discrete",
+                dur="1s", begin=past(seconds % 1), repeatCount="indefinite")
+    for x in (PANEL_X - 74, PANEL_X + 74):
+        parts.append(tag("text", ":", blink, x=x, y=y - 8, font_size=size,
+                         font_family=MONO, text_anchor="middle", fill=color("muted")))
+    date = format_date(state["now"])
+    parts.append(text(date[0].upper() + date[1:], PANEL_X, y + 55, 24, fill=color("muted")))
+    return tag("g", *parts)
+
+
 def build_svg(state):
     body = [
         tag("defs", build_palette()),
         tag("rect", width=WIDTH, height=HEIGHT, fill=color("bg")),
         build_header(),
         build_main_clock(state),
+        build_digital(state),
     ]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             + tag("svg", *body, xmlns="http://www.w3.org/2000/svg",
