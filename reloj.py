@@ -682,6 +682,22 @@ def draw_alarm_banner(screen, state):
     screen.center(HEIGHT - 2, message, "accent" if flash else "highlight")
 
 
+def stopwatch_elapsed(state):
+    running = state["uptime"] - state["sw_started"] if state["sw_started"] is not None else 0.0
+    return state["sw_saved"] + running
+
+
+def draw_stopwatch(screen, y, state):
+    elapsed = stopwatch_elapsed(state)
+    value = "{:02d}:{:02d}.{}".format(int(elapsed) // 60, int(elapsed) % 60, int(elapsed * 10) % 10)
+    if state["sw_started"] is not None:
+        draw_tool(screen, y, "Cronómetro", value, "en marcha", "accent")
+    elif elapsed:
+        draw_tool(screen, y, "Cronómetro", value, "en pausa")
+    else:
+        draw_tool(screen, y, "Cronómetro", value, "detenido", "muted")
+
+
 def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
@@ -700,6 +716,7 @@ def build_frame(state):
     draw_world(screen, 13, state)
     section_title(screen, 19, "Herramientas")
     draw_alarm(screen, 20, state)
+    draw_stopwatch(screen, 21, state)
     if is_ringing(state):
         draw_alarm_banner(screen, state)
     return screen
@@ -811,9 +828,24 @@ def choose_alarm(state):
     state["alarm_day"] = None
 
 
+def toggle_stopwatch(state):
+    uptime = read_uptime()
+    if state["sw_started"] is None:
+        state["sw_started"] = uptime
+    else:
+        state["sw_saved"] += uptime - state["sw_started"]
+        state["sw_started"] = None
+
+
+def reset_stopwatch(state):
+    state["sw_started"], state["sw_saved"] = None, 0.0
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
     ("2", "Programar o quitar la alarma", choose_alarm),
+    ("3", "Cronómetro: iniciar o pausar", toggle_stopwatch),
+    ("4", "Cronómetro: reiniciar", reset_stopwatch),
 ]
 
 
@@ -845,7 +877,7 @@ def show_menu(state):
 def main():
     state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
              "world": load_world(), "alarm": None, "alarm_day": None,
-             "ringing_until": 0.0, "last_bell": -1}
+             "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0}
     while True:
         run_clock(state)
         if is_ringing(state):
