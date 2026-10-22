@@ -1,8 +1,8 @@
 """Tiny test runner without unittest or pytest: python3 -m tests"""
 
-from tests import test_dates
+from tests import test_dates, test_timezones
 
-TEST_MODULES = [test_dates]
+TEST_MODULES = [test_dates, test_timezones]
 
 
 def run(modules) -> list[str]:
