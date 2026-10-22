@@ -868,7 +868,7 @@ def run_clock(state):
 
 
 # ---------------------------------------------------------------------------
-# Questions asked before drawing
+# Menu and questions
 # ---------------------------------------------------------------------------
 
 def ask(question, parse, default):
