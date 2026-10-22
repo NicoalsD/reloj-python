@@ -674,17 +674,49 @@ def output_path():
     return (folder + "/" if folder else "") + OUTPUT_FILE
 
 
+# ---------------------------------------------------------------------------
+# Questions asked before drawing
+# ---------------------------------------------------------------------------
+
+def ask(question, parse, default):
+    """Keep asking until 'parse' accepts the answer; Enter keeps the default."""
+    while True:
+        try:
+            answer = input(question).strip()
+        except EOFError:
+            print()
+            return default
+        if not answer:
+            return default
+        try:
+            return parse(answer)
+        except ValueError:
+            print("  Valor no válido, intenta de nuevo.")
+
+
+def parse_theme(answer):
+    index = int(answer) - 1
+    if not 0 <= index < len(THEMES):
+        raise ValueError(answer)
+    return index
+
+
 def main():
-    print("Reloj en Python")
+    print("🕰️  Reloj en Python\n")
+    names = " ".join("{}) {}".format(index + 1, name) for index, (name, _) in enumerate(THEMES))
+    theme = ask("Tema inicial: {} [1]: ".format(names), parse_theme, 0)
+
+    # Read the clock only after the questions so the drawing starts on time.
     epoch = read_epoch()
     offset, _, zone_name = zone_offset(load_zone(None), epoch)
     now = local_datetime(epoch, offset)
-    print("Hora local ({}):".format(zone_name), format_date(now), format_time(now))
-    state = {"epoch": epoch, "now": now}
+    state = {"epoch": epoch, "now": now, "theme": theme}
     path = output_path()
     with open(path, "w", encoding="utf-8") as target:
         target.write(build_svg(state))
+    print("\nHora local ({}): {} {}".format(zone_name, format_date(now), format_time(now)))
     print("Reloj generado en: file://" + path)
+    print("Ábrelo ya en tu navegador; si lo abres más tarde, vuelve a generarlo.")
 
 
 if __name__ == "__main__":
