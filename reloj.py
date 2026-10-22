@@ -595,10 +595,57 @@ def build_tabs(panels):
     return tag("g", *parts)
 
 
+WORLD_ZONES = [
+    ("Bogotá", "America/Bogota"),
+    ("Madrid", "Europe/Madrid"),
+    ("Tokio", "Asia/Tokyo"),
+    ("Nueva York", "America/New_York"),
+]
+
+
+def format_utc_offset(offset):
+    sign = "+" if offset >= 0 else "-"
+    hours, minutes = abs(offset) // 3600, abs(offset) // 60 % 60
+    return "UTC{}{}{}".format(sign, hours, ":{:02d}".format(minutes) if minutes else "")
+
+
+def relative_day(days, home_days):
+    return {-1: "ayer", 0: "hoy", 1: "mañana"}.get(days - home_days, "")
+
+
+def build_world_clock(city, zone_name, cx, cy, state):
+    try:
+        offset = zone_offset(load_zone(zone_name), state["epoch"])[0]
+    except (OSError, ValueError):
+        return text(city + ": zona no disponible", cx, cy, 14, fill=color("muted"))
+    moment = local_datetime(state["epoch"], offset)
+    seconds = moment["seconds_of_day"]
+    radius, size, y = 52, 15, cy + 98
+    details = "{} · {}".format(format_utc_offset(offset),
+                               relative_day(moment["days"], state["now"]["days"]))
+    return tag("g",
+               build_dial(cx, cy, radius, with_numbers=False),
+               build_hands(cx, cy, radius, seconds),
+               text(city, cx, cy + 77, 18, font_weight="bold"),
+               ticker(two_digits(24), cx - 62, y, size, 3600, past(seconds)),
+               text(":", cx - 50, y, size, font_family=MONO),
+               ticker(two_digits(60), cx - 38, y, size, 60, past(seconds % 3600)),
+               text(details, cx - 20, y, 13, text_anchor="start", fill=color("muted")))
+
+
+def build_world_panel(state):
+    parts = []
+    for index, (city, zone_name) in enumerate(WORLD_ZONES):
+        cx = CARD_X + 120 + (index % 2) * 240
+        cy = CARD_Y + 75 + (index // 2) * 170
+        parts.append(build_world_clock(city, zone_name, cx, cy, state))
+    return tag("g", *parts)
+
+
 def build_panels(state):
     center = CARD_X + CARD_WIDTH / 2
     return build_tabs([
-        ("world", "🌎 Mundo", text("Relojes del mundo", center, 540, 22)),
+        ("world", "🌎 Mundo", build_world_panel(state)),
         ("stopwatch", "⏱️ Cronómetro", text("Cronómetro", center, 540, 22)),
         ("pomodoro", "🍅 Pomodoro", text("Pomodoro", center, 540, 22)),
         ("fun", "🎉 Divertido", text("Modo divertido", center, 540, 22)),
