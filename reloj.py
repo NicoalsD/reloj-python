@@ -727,6 +727,28 @@ def draw_pomodoro(screen, y, state):
     screen.put(PANEL_LEFT + 22, y, "▕" + bar + "▏", "accent")
 
 
+def countdown_target(state):
+    """Local midnight of the next occurrence of the chosen day and month."""
+    day, month = state["countdown"]
+    now = state["now"]
+    year = now["year"] + (1 if (month, day) < (now["month"], now["day"]) else 0)
+    while days_in_month(year, month) < day:
+        year += 1
+    return days_from_civil(year, month, day) * SECONDS_PER_DAY - state["offset"]
+
+
+def draw_countdown(screen, y, state):
+    day, month = state["countdown"]
+    title = "{} de {}".format(day, MONTH_NAMES[month - 1])
+    if (month, day) == (state["now"]["month"], state["now"]["day"]):
+        draw_tool(screen, y, "Cuenta atrás", "¡Hoy es el día!", title, "accent")
+        return
+    left = int(countdown_target(state) - state["epoch"])
+    value = "{}d {:02d}:{:02d}:{:02d}".format(left // SECONDS_PER_DAY, left // 3600 % 24,
+                                             left // 60 % 60, left % 60)
+    draw_tool(screen, y, "Cuenta atrás", value, title)
+
+
 def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
@@ -747,6 +769,7 @@ def build_frame(state):
     draw_alarm(screen, 20, state)
     draw_stopwatch(screen, 21, state)
     draw_pomodoro(screen, 22, state)
+    draw_countdown(screen, 23, state)
     if is_ringing(state):
         draw_alarm_banner(screen, state)
     return screen
@@ -882,12 +905,18 @@ def toggle_pomodoro(state):
     state["pomo_end"] = None if state["pomo_end"] is not None else read_uptime() + POMODORO_SECONDS
 
 
+def choose_countdown(state):
+    state["countdown"] = ask("  Fecha para la cuenta atrás (DD/MM, Enter para Navidad): ",
+                             parse_day_month, (24, 12))
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
     ("2", "Programar o quitar la alarma", choose_alarm),
     ("3", "Cronómetro: iniciar o pausar", toggle_stopwatch),
     ("4", "Cronómetro: reiniciar", reset_stopwatch),
     ("5", "Pomodoro de 25 minutos: iniciar o cancelar", toggle_pomodoro),
+    ("6", "Cambiar la fecha de la cuenta atrás", choose_countdown),
 ]
 
 
@@ -920,7 +949,7 @@ def main():
     state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
              "world": load_world(), "alarm": None, "alarm_day": None,
              "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0,
-             "pomo_end": None}
+             "pomo_end": None, "countdown": (24, 12)}
     while True:
         run_clock(state)
         if is_ringing(state):
