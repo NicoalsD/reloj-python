@@ -383,10 +383,21 @@ class Canvas:
 
 ESCAPE = "\x1b["
 RESET = ESCAPE + "0m"
-PALETTE = {
-    "bg": (244, 247, 251), "face": (255, 255, 255), "ink": (31, 42, 90),
-    "accent": (232, 64, 42), "muted": (138, 144, 166), "highlight": (142, 43, 143),
-}
+THEMES = [
+    ("Medianoche", {"bg": (15, 17, 35), "ink": (226, 232, 255), "accent": (255, 94, 98),
+                    "muted": (110, 118, 160), "highlight": (138, 180, 255),
+                    "frame": (70, 80, 140)}),
+    ("Clásico", {"bg": (244, 247, 251), "ink": (31, 42, 90), "accent": (232, 64, 42),
+                 "muted": (138, 144, 166), "highlight": (142, 43, 143),
+                 "frame": (31, 42, 90)}),
+    ("Neón", {"bg": (13, 2, 33), "ink": (244, 241, 255), "accent": (255, 42, 109),
+              "muted": (157, 143, 214), "highlight": (5, 217, 232), "frame": (255, 42, 109)}),
+    ("Matrix", {"bg": (0, 0, 0), "ink": (57, 255, 20), "accent": (198, 255, 0),
+                "muted": (31, 143, 58), "highlight": (0, 255, 156), "frame": (20, 110, 40)}),
+    ("Atardecer", {"bg": (45, 20, 44), "ink": (255, 236, 214), "accent": (255, 107, 53),
+                   "muted": (181, 131, 141), "highlight": (255, 183, 3),
+                   "frame": (230, 57, 70)}),
+]
 
 
 def foreground(rgb):
@@ -539,7 +550,9 @@ def main():
     canvas.label(40, 8, "12", "highlight")
     screen = Screen(44, 22)
     screen.draw_canvas(canvas, 2, 1)
-    print(screen.render(PALETTE))
+    for name, palette in THEMES:
+        print(name)
+        print(screen.render(palette))
 
 if __name__ == "__main__":
     main()
