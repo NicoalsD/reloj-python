@@ -122,6 +122,10 @@ def format_date(moment):
                                       MONTH_NAMES[moment["month"] - 1], moment["year"])
 
 
+def format_clock(seconds_of_day):
+    return "{:02d}:{:02d}".format(int(seconds_of_day) // 3600, int(seconds_of_day) // 60 % 60)
+
+
 def format_time(moment):
     return "{:02d}:{:02d}:{:02d}".format(moment["hour"], moment["minute"], moment["second"])
 
@@ -652,6 +656,47 @@ def build_panels(state):
     ])
 
 
+def build_alarm_marker(state):
+    """Small triangle outside the rim pointing at the alarm hour, plus a caption."""
+    alarm = state.get("alarm")
+    if alarm is None:
+        return text("⏰ Sin alarma", 50, 135, 16, text_anchor="start", fill=color("muted"))
+    angle = alarm % 43200 / 120.0
+    tip = polar(CLOCK_X, CLOCK_Y, CLOCK_RADIUS + 6, angle)
+    left = polar(CLOCK_X, CLOCK_Y, CLOCK_RADIUS + 24, angle - 2.5)
+    right = polar(CLOCK_X, CLOCK_Y, CLOCK_RADIUS + 24, angle + 2.5)
+    return tag("g",
+               tag("polygon", points=points(tip, left, right), fill=color("accent")),
+               text("⏰ Alarma a las {}".format(format_clock(alarm)), 50, 135, 16,
+                    text_anchor="start", fill=color("accent"), font_weight="bold"))
+
+
+def build_alarm_overlay(state):
+    """Hidden full screen banner that pops up when the alarm time arrives."""
+    alarm = state.get("alarm")
+    if alarm is None:
+        return ""
+    delay = (alarm - state["now"]["seconds_of_day"]) % SECONDS_PER_DAY
+    begin = "{:.3f}s;{:.3f}s".format(delay, delay + SECONDS_PER_DAY)
+    flash = tag("animate", attributeName="opacity", values="0.92;0.7;0.92", dur="0.8s",
+                repeatCount="indefinite")
+    bell = tag("g", text("⏰", WIDTH / 2, HEIGHT / 2 - 70, 120, fill="#ffffff"),
+               tag("animateTransform", attributeName="transform", type="rotate",
+                   values="-15 {x} {y};15 {x} {y};-15 {x} {y}".format(x=WIDTH / 2, y=HEIGHT / 2 - 110),
+                   dur="0.4s", repeatCount="indefinite"))
+    return tag("g",
+               tag("rect", flash, width=WIDTH, height=HEIGHT, fill=color("accent")),
+               bell,
+               text("¡Alarma! Son las " + format_clock(alarm), WIDTH / 2, HEIGHT / 2 + 40, 64,
+                    fill="#ffffff", font_weight="bold"),
+               text("Haz clic en cualquier parte para apagarla", WIDTH / 2, HEIGHT / 2 + 95, 24,
+                    fill="#ffffff"),
+               tag("set", attributeName="visibility", to="visible", begin=begin, dur="60s"),
+               tag("set", attributeName="visibility", to="hidden", begin="alarmOverlay.click",
+                   dur="60s"),
+               id="alarmOverlay", visibility="hidden", cursor="pointer")
+
+
 def build_svg(state):
     body = [
         tag("defs", build_palette(state.get("theme", 0))),
@@ -662,6 +707,8 @@ def build_svg(state):
         build_greeting(state),
         build_panels(state),
         build_theme_buttons(),
+        build_alarm_marker(state),
+        build_alarm_overlay(state),
     ]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             + tag("svg", *body, xmlns="http://www.w3.org/2000/svg",
@@ -701,16 +748,25 @@ def parse_theme(answer):
     return index
 
 
+def parse_alarm(answer):
+    """'7:30' or '07:30' -> seconds since midnight."""
+    hours, minutes = (int(part) for part in answer.split(":"))
+    if not (0 <= hours < 24 and 0 <= minutes < 60):
+        raise ValueError(answer)
+    return hours * 3600 + minutes * 60
+
+
 def main():
     print("🕰️  Reloj en Python\n")
     names = " ".join("{}) {}".format(index + 1, name) for index, (name, _) in enumerate(THEMES))
     theme = ask("Tema inicial: {} [1]: ".format(names), parse_theme, 0)
+    alarm = ask("Hora de la alarma (HH:MM, Enter para ninguna): ", parse_alarm, None)
 
     # Read the clock only after the questions so the drawing starts on time.
     epoch = read_epoch()
     offset, _, zone_name = zone_offset(load_zone(None), epoch)
     now = local_datetime(epoch, offset)
-    state = {"epoch": epoch, "now": now, "theme": theme}
+    state = {"epoch": epoch, "now": now, "theme": theme, "alarm": alarm}
     path = output_path()
     with open(path, "w", encoding="utf-8") as target:
         target.write(build_svg(state))
