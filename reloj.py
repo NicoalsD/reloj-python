@@ -7,6 +7,7 @@ so it keeps ticking in any browser without HTML, CSS or JavaScript.
 OUTPUT_FILE = "reloj.svg"
 PROC_STAT_PATH = "/proc/stat"
 PROC_UPTIME_PATH = "/proc/uptime"
+RTC_EPOCH_PATH = "/sys/class/rtc/rtc0/since_epoch"
 
 
 # ---------------------------------------------------------------------------
@@ -28,9 +29,18 @@ def read_uptime():
         return float(uptime.read().split()[0])
 
 
+def read_rtc_epoch():
+    """Read the hardware clock; less precise and may be stored in local time."""
+    with open(RTC_EPOCH_PATH) as rtc:
+        return float(rtc.read().strip())
+
+
 def read_epoch():
     """Return the current UTC time as fractional seconds since 1970."""
-    return read_boot_time() + read_uptime()
+    try:
+        return read_boot_time() + read_uptime()
+    except (OSError, ValueError, IndexError):
+        return read_rtc_epoch()
 
 
 def main():
