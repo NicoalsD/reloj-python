@@ -8,6 +8,8 @@ OUTPUT_FILE = "reloj.svg"
 PROC_STAT_PATH = "/proc/stat"
 PROC_UPTIME_PATH = "/proc/uptime"
 RTC_EPOCH_PATH = "/sys/class/rtc/rtc0/since_epoch"
+LOCAL_ZONE_PATH = "/etc/localtime"
+ZONEINFO_DIR = "/usr/share/zoneinfo/"
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +124,62 @@ def format_date(moment):
 
 def format_time(moment):
     return "{:02d}:{:02d}:{:02d}".format(moment["hour"], moment["minute"], moment["second"])
+
+
+# ---------------------------------------------------------------------------
+# Time zones: hand made reader for the binary TZif format (RFC 8536)
+# ---------------------------------------------------------------------------
+
+def read_int(data, start, size, signed=True):
+    return int.from_bytes(data[start:start + size], "big", signed=signed)
+
+
+def parse_tzif(path):
+    """Read a zoneinfo file and return its transitions, types and footer rule."""
+    with open(path, "rb") as source:
+        data = source.read()
+    if data[:4] != b"TZif":
+        raise ValueError(path + " is not a TZif file")
+
+    def block_sizes(header, time_size):
+        counts = [read_int(data, header + 20 + 4 * index, 4, False) for index in range(6)]
+        utc_count, std_count, leap_count, time_count, type_count, char_count = counts
+        length = (time_count * time_size + time_count + type_count * 6 + char_count
+                  + leap_count * (time_size + 4) + std_count + utc_count)
+        return time_count, type_count, char_count, length
+
+    header, time_size = 0, 4
+    if data[4:5] >= b"2":
+        # Skip the legacy 32-bit block and read the 64-bit one.
+        header = 44 + block_sizes(0, 4)[3]
+        time_size = 8
+    time_count, type_count, char_count, length = block_sizes(header, time_size)
+
+    cursor = header + 44
+    transitions = [read_int(data, cursor + time_size * index, time_size)
+                   for index in range(time_count)]
+    cursor += time_size * time_count
+    type_indexes = list(data[cursor:cursor + time_count])
+    cursor += time_count
+    types = []
+    for index in range(type_count):
+        start = cursor + 6 * index
+        types.append((read_int(data, start, 4), data[start + 4], data[start + 5]))
+    cursor += 6 * type_count
+    names = data[cursor:cursor + char_count]
+
+    def abbreviation(start):
+        return names[start:names.index(b"\0", start)].decode("ascii")
+
+    footer = ""
+    if time_size == 8:
+        footer = data[header + 44 + length:].strip(b"\n").decode("ascii")
+    return {
+        "transitions": transitions,
+        "type_indexes": type_indexes,
+        "types": [(offset, bool(dst), abbreviation(start)) for offset, dst, start in types],
+        "footer": footer,
+    }
 
 
 def main():
