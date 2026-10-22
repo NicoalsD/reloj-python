@@ -965,7 +965,7 @@ MENU = [
     ("2", "Programar o quitar la alarma", choose_alarm),
     ("3", "Cronómetro: iniciar o pausar", toggle_stopwatch),
     ("4", "Cronómetro: reiniciar", reset_stopwatch),
-    ("5", "Pomodoro de 25 minutos: iniciar o cancelar", toggle_pomodoro),
+    ("5", "Pomodoro (25 min): iniciar o cancelar", toggle_pomodoro),
     ("6", "Cambiar la fecha de la cuenta atrás", choose_countdown),
     ("7", "Reloj al revés: activar o desactivar", toggle_reverse),
     ("8", "¡Girar el reloj!", spin_clock),
@@ -981,7 +981,7 @@ def show_menu(state):
     print(CLEAR + "{}╭──────────────── {}Menú del reloj{} ────────────────╮".format(
         frame, title, frame))
     for key, label, _ in MENU + [("0", "Salir", None)]:
-        print("{}│{}  {}{}{}  {:<41}{}│".format(frame, RESET, title, key, RESET, label, frame))
+        print("{}│{}  {}{}{}  {:<43}{}│".format(frame, RESET, title, key, RESET, label, frame))
     print("╰" + "─" * 48 + "╯" + RESET)
     print(muted + "  Enter vuelve al reloj." + RESET)
     try:
