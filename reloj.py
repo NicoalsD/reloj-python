@@ -36,12 +36,12 @@ def read_rtc_epoch():
         return float(rtc.read().strip())
 
 
-def read_epoch():
-    """Return the current UTC time as fractional seconds since 1970."""
+def read_boot_epoch():
+    """Boot moment in UTC; the hardware clock is a rougher fallback."""
     try:
-        return read_boot_time() + read_uptime()
+        return read_boot_time()
     except (OSError, ValueError, IndexError):
-        return read_rtc_epoch()
+        return read_rtc_epoch() - read_uptime()
 
 
 # ---------------------------------------------------------------------------
@@ -506,10 +506,6 @@ BIG_FONT = {
 def big_text(content):
     """Return the five rows of 'content' written with BIG_FONT."""
     return [" ".join(BIG_FONT[character][row] for character in content) for row in range(5)]
-
-
-def big_width(content):
-    return len(big_text(content)[0])
 
 
 # ---------------------------------------------------------------------------
@@ -1000,7 +996,7 @@ def show_menu(state):
 
 
 def main():
-    state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
+    state = {"theme": 0, "boot": read_boot_epoch(), "zone": load_zone(None),
              "world": load_world(), "alarm": None, "alarm_day": None,
              "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0,
              "pomo_end": None, "countdown": (24, 12),
