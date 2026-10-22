@@ -1,12 +1,13 @@
 """Tiny test runner without unittest or pytest: python3 -m tests"""
 
-from tests import (test_alarm, test_canvas, test_colors, test_countdown, test_dates,
-                   test_effects, test_parsing, test_pomodoro, test_screen, test_spanish,
-                   test_stopwatch, test_system_clock, test_themes, test_timezones,
-                   test_toolbox, test_trig, test_world)
+from tests import (test_alarm, test_analog, test_canvas, test_colors, test_countdown,
+                   test_dates, test_effects, test_parsing, test_pomodoro, test_screen,
+                   test_spanish, test_stopwatch, test_system_clock, test_themes,
+                   test_timezones, test_toolbox, test_trig, test_world)
 
 TEST_MODULES = [
     test_alarm,
+    test_analog,
     test_canvas,
     test_colors,
     test_countdown,
