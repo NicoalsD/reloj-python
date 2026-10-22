@@ -887,7 +887,6 @@ def ask(question, parse, default):
             print("  Valor no válido, intenta de nuevo.")
 
 
-
 def parse_alarm(answer):
     """'7:30' or '07:30' -> seconds since midnight."""
     hours, minutes = (int(part) for part in answer.split(":"))
