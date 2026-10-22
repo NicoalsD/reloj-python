@@ -379,11 +379,43 @@ def build_header():
                    text_anchor="start", fill=color("muted")))
 
 
+def build_dial(cx, cy, radius, direction=1, with_numbers=True):
+    """Clock face: rim, 60 minute ticks, thicker hour ticks and 1 to 12."""
+    parts = [tag("circle", cx=cx, cy=cy, r=radius, fill=color("face"),
+                 stroke=color("ink"), stroke_width=max(2.0, radius / 70))]
+    for tick in range(60):
+        is_hour = tick % 5 == 0
+        inner = radius * (0.86 if is_hour else 0.92)
+        x1, y1 = polar(cx, cy, inner, tick * 6 * direction)
+        x2, y2 = polar(cx, cy, radius * 0.97, tick * 6 * direction)
+        parts.append(tag("line", x1=x1, y1=y1, x2=x2, y2=y2, stroke=color("ink"),
+                         stroke_width=radius / (55 if is_hour else 150),
+                         stroke_linecap="round"))
+    if with_numbers:
+        size = radius * 0.15
+        for hour in range(1, 13):
+            x, y = polar(cx, cy, radius * 0.72, hour * 30 * direction)
+            parts.append(text(hour, x, y + size * 0.36, size))
+    return tag("g", *parts)
+
+
+CLOCK_X, CLOCK_Y, CLOCK_RADIUS = 380, 445, 290
+
+
+def build_main_clock(state):
+    shadow = tag("filter", tag("feDropShadow", dx=0, dy=10, stdDeviation=14,
+                               flood_color="#000000", flood_opacity=0.22),
+                 id="shadow", x="-20%", y="-20%", width="140%", height="140%")
+    return tag("g", shadow, build_dial(CLOCK_X, CLOCK_Y, CLOCK_RADIUS),
+               id="main-clock", filter="url(#shadow)")
+
+
 def build_svg(state):
     body = [
         tag("defs", build_palette()),
         tag("rect", width=WIDTH, height=HEIGHT, fill=color("bg")),
         build_header(),
+        build_main_clock(state),
     ]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             + tag("svg", *body, xmlns="http://www.w3.org/2000/svg",
