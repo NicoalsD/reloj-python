@@ -378,6 +378,64 @@ class Canvas:
 
 
 # ---------------------------------------------------------------------------
+# Terminal screen with 24-bit ANSI colors
+# ---------------------------------------------------------------------------
+
+ESCAPE = "\x1b["
+RESET = ESCAPE + "0m"
+PALETTE = {
+    "bg": (244, 247, 251), "face": (255, 255, 255), "ink": (31, 42, 90),
+    "accent": (232, 64, 42), "muted": (138, 144, 166), "highlight": (142, 43, 143),
+}
+
+
+def foreground(rgb):
+    return ESCAPE + "38;2;{};{};{}m".format(*rgb)
+
+
+def background(rgb):
+    return ESCAPE + "48;2;{};{};{}m".format(*rgb)
+
+
+class Screen:
+    """Grid of characters; colors are palette role names or (r, g, b) tuples."""
+
+    def __init__(self, width, height):
+        self.width, self.height = width, height
+        self.chars = [[" "] * width for _ in range(height)]
+        self.colors = [[None] * width for _ in range(height)]
+
+    def put(self, x, y, content, color=None):
+        for index, character in enumerate(content):
+            if 0 <= x + index < self.width and 0 <= y < self.height:
+                self.chars[y][x + index] = character
+                self.colors[y][x + index] = color
+
+    def center(self, y, content, color=None, left=0, right=None):
+        right = self.width if right is None else right
+        self.put(left + (right - left - len(content)) // 2, y, content, color)
+
+    def draw_canvas(self, canvas, x, y):
+        for row, column, character, color in canvas.cells():
+            self.put(x + column, y + row, character, color)
+
+    def render(self, palette):
+        """Return the whole frame, emitting a color code only when it changes."""
+        lines = []
+        for y in range(self.height):
+            parts, current = [background(palette["bg"])], None
+            for x in range(self.width):
+                color = self.colors[y][x] or "ink"
+                rgb = palette[color] if isinstance(color, str) else color
+                if rgb != current:
+                    parts.append(foreground(rgb))
+                    current = rgb
+                parts.append(self.chars[y][x])
+            lines.append("".join(parts) + RESET)
+        return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Spanish texts
 # ---------------------------------------------------------------------------
 
@@ -476,14 +534,12 @@ def main():
     now = local_datetime(epoch, offset)
     print("Hora local ({}): {} {}".format(zone_name, format_date(now), format_time(now)))
     canvas = Canvas(40, 20)
-    canvas.circle(40, 40, 38, None)
-    canvas.line(40, 40, 40, 8, None, thickness=1)
-    canvas.label(40, 8, "12", None)
-    lines = [""] * canvas.rows
-    for row, _, character, _ in canvas.cells():
-        lines[row] += character
-    print("\n".join(lines))
-
+    canvas.circle(40, 40, 38, "ink")
+    canvas.line(40, 40, 40, 8, "accent", thickness=1)
+    canvas.label(40, 8, "12", "highlight")
+    screen = Screen(44, 22)
+    screen.draw_canvas(canvas, 2, 1)
+    print(screen.render(PALETTE))
 
 if __name__ == "__main__":
     main()
