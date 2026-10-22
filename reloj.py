@@ -182,6 +182,102 @@ def parse_tzif(path):
     }
 
 
+def read_zone_name(spec, cursor):
+    """Read a POSIX TZ abbreviation, either alphabetic or quoted with <>."""
+    if spec[cursor] == "<":
+        end = spec.index(">", cursor)
+        return spec[cursor + 1:end], end + 1
+    end = cursor
+    while end < len(spec) and spec[end].isalpha():
+        end += 1
+    return spec[cursor:end], end
+
+
+def read_clock_value(spec, cursor):
+    """Read [+-]hh[:mm[:ss]] and return it in seconds."""
+    sign = 1
+    if cursor < len(spec) and spec[cursor] in "+-":
+        sign = -1 if spec[cursor] == "-" else 1
+        cursor += 1
+    end = cursor
+    while end < len(spec) and (spec[end].isdigit() or spec[end] == ":"):
+        end += 1
+    seconds = 0
+    for part, scale in zip(spec[cursor:end].split(":"), (3600, 60, 1)):
+        seconds += int(part) * scale
+    return sign * seconds, end
+
+
+def parse_rule_date(text):
+    """Parse 'Mm.w.d[/time]' into (month, week, weekday, seconds)."""
+    if not text.startswith("M"):
+        return None
+    date, _, moment = text[1:].partition("/")
+    month, week, weekday = (int(part) for part in date.split("."))
+    seconds = read_clock_value(moment, 0)[0] if moment else 7200
+    return month, week, weekday, seconds
+
+
+def parse_posix_rule(spec):
+    """Parse a POSIX TZ string such as 'CET-1CEST,M3.5.0,M10.5.0/3'."""
+    std_name, cursor = read_zone_name(spec, 0)
+    std_west, cursor = read_clock_value(spec, cursor)
+    rule = {"std": (-std_west, False, std_name), "dst": None}
+    if cursor >= len(spec):
+        return rule
+    dst_name, cursor = read_zone_name(spec, cursor)
+    dst_west = std_west - 3600
+    if cursor < len(spec) and spec[cursor] != ",":
+        dst_west, cursor = read_clock_value(spec, cursor)
+    start, end = spec[cursor + 1:].split(",")
+    start, end = parse_rule_date(start), parse_rule_date(end)
+    if start and end:
+        rule["dst"] = (-dst_west, True, dst_name)
+        rule["start"], rule["end"] = start, end
+    return rule
+
+
+def rule_moment(year, rule_date):
+    """Seconds since 1970 (in local wall time) for a 'Mm.w.d/time' rule."""
+    month, week, weekday, seconds = rule_date
+    first = days_from_civil(year, month, 1)
+    day = 1 + (weekday - weekday_from_days(first)) % 7 + (week - 1) * 7
+    while day > days_in_month(year, month):
+        day -= 7
+    return (first + day - 1) * SECONDS_PER_DAY + seconds
+
+
+def posix_offset(rule, epoch):
+    """Return the (offset, is_dst, name) a POSIX rule gives at an epoch."""
+    std, dst = rule["std"], rule["dst"]
+    if dst is None:
+        return std
+    year = civil_from_days(int((epoch + std[0]) // SECONDS_PER_DAY))[0]
+    start = rule_moment(year, rule["start"]) - std[0]
+    end = rule_moment(year, rule["end"]) - dst[0]
+    if start < end:
+        in_dst = start <= epoch < end
+    else:
+        in_dst = not end <= epoch < start
+    return dst if in_dst else std
+
+
+def zone_offset(zone, epoch):
+    """Return the (offset, is_dst, name) of a parsed zone at an epoch."""
+    transitions = zone["transitions"]
+    if zone["footer"] and (not transitions or epoch >= transitions[-1]):
+        return posix_offset(parse_posix_rule(zone["footer"]), epoch)
+    current = None
+    for index, moment in enumerate(transitions):
+        if moment > epoch:
+            break
+        current = zone["type_indexes"][index]
+    if current is None:
+        standard = [kind for kind in zone["types"] if not kind[1]]
+        return standard[0] if standard else zone["types"][0]
+    return zone["types"][current]
+
+
 def main():
     print("Reloj en Python")
     epoch = read_epoch()
