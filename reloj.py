@@ -399,6 +399,21 @@ def draw_dial(canvas, direction=1, turn=0.0):
         canvas.label(x, y, str(hour), "highlight" if hour % 3 == 0 else "ink")
 
 
+def draw_hands(canvas, seconds_of_day, direction=1, turn=0.0):
+    """Hour and minute hands move smoothly; the second hand jumps like a real one."""
+    cx, cy = canvas.width / 2, canvas.height / 2
+    radius = min(cx, cy) - 2
+    hour = (seconds_of_day % 43200) / 120.0 * direction + turn
+    minute = (seconds_of_day % 3600) / 10.0 * direction + turn
+    second = int(seconds_of_day % 60) * 6 * direction + turn
+    canvas.line(cx, cy, *polar(cx, cy, radius * 0.48, hour), color="ink", thickness=1.5)
+    canvas.line(cx, cy, *polar(cx, cy, radius * 0.76, minute), color="ink", thickness=0.5)
+    canvas.line(*(polar(cx, cy, radius * 0.18, second + 180) + polar(cx, cy, radius * 0.86, second)),
+                color="accent")
+    for ring in (0.5, 1.2, 2.0):
+        canvas.circle(cx, cy, ring, "accent")
+
+
 # ---------------------------------------------------------------------------
 # Terminal screen with 24-bit ANSI colors
 # ---------------------------------------------------------------------------
@@ -568,6 +583,7 @@ def main():
     print("Hora local ({}): {} {}".format(zone_name, format_date(now), format_time(now)))
     canvas = Canvas(44, 22)
     draw_dial(canvas)
+    draw_hands(canvas, now["seconds_of_day"])
     screen = Screen(48, 24)
     screen.draw_canvas(canvas, 2, 1)
     print(screen.render(THEMES[0][1]))
