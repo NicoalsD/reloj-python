@@ -378,6 +378,28 @@ class Canvas:
 
 
 # ---------------------------------------------------------------------------
+# Analog clock drawing
+# ---------------------------------------------------------------------------
+
+def draw_dial(canvas, direction=1, turn=0.0):
+    """Rim, minute dots, hour ticks and the numbers 1 to 12."""
+    cx, cy = canvas.width / 2, canvas.height / 2
+    radius = min(cx, cy) - 2
+    canvas.circle(cx, cy, radius, "frame")
+    canvas.circle(cx, cy, radius - 0.8, "frame")
+    for tick in range(60):
+        angle = tick * 6 * direction + turn
+        if tick % 5 == 0:
+            canvas.line(*(polar(cx, cy, radius * 0.86, angle) + polar(cx, cy, radius * 0.95, angle)),
+                        color="ink", thickness=0.5)
+        else:
+            canvas.dot(*polar(cx, cy, radius * 0.94, angle), color="muted")
+    for hour in range(1, 13):
+        x, y = polar(cx, cy, radius * 0.72, hour * 30 * direction + turn)
+        canvas.label(x, y, str(hour), "highlight" if hour % 3 == 0 else "ink")
+
+
+# ---------------------------------------------------------------------------
 # Terminal screen with 24-bit ANSI colors
 # ---------------------------------------------------------------------------
 
@@ -544,15 +566,11 @@ def main():
     offset, _, zone_name = zone_offset(load_zone(None), epoch)
     now = local_datetime(epoch, offset)
     print("Hora local ({}): {} {}".format(zone_name, format_date(now), format_time(now)))
-    canvas = Canvas(40, 20)
-    canvas.circle(40, 40, 38, "ink")
-    canvas.line(40, 40, 40, 8, "accent", thickness=1)
-    canvas.label(40, 8, "12", "highlight")
-    screen = Screen(44, 22)
+    canvas = Canvas(44, 22)
+    draw_dial(canvas)
+    screen = Screen(48, 24)
     screen.draw_canvas(canvas, 2, 1)
-    for name, palette in THEMES:
-        print(name)
-        print(screen.render(palette))
+    print(screen.render(THEMES[0][1]))
 
 if __name__ == "__main__":
     main()
