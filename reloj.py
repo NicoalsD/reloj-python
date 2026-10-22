@@ -621,6 +621,47 @@ def build_frame(state):
 
 
 # ---------------------------------------------------------------------------
+# Live loop
+# ---------------------------------------------------------------------------
+
+FRAME_SECONDS = 0.1
+ENTER_SCREEN = ESCAPE + "?1049h" + ESCAPE + "?25l"   # alternate screen, hide cursor
+LEAVE_SCREEN = ESCAPE + "?25h" + ESCAPE + "?1049l"
+HOME = ESCAPE + "H"
+
+
+def wait_until(uptime_target):
+    """There is no sleep() without modules, so keep checking the uptime counter."""
+    while read_uptime() < uptime_target:
+        pass
+
+
+def update_time(state):
+    uptime = read_uptime()
+    state["uptime"] = uptime
+    state["epoch"] = state["boot"] + uptime
+    state["offset"] = zone_offset(state["zone"], state["epoch"])[0]
+    state["now"] = local_datetime(state["epoch"], state["offset"])
+
+
+def run_clock(state):
+    """Redraw in place until Ctrl+C."""
+    print(ENTER_SCREEN, end="")
+    try:
+        next_frame = read_uptime()
+        while True:
+            update_time(state)
+            frame = build_frame(state).render(THEMES[state["theme"]][1])
+            print(HOME + frame, end="", flush=True)
+            next_frame = max(next_frame + FRAME_SECONDS, state["uptime"])
+            wait_until(next_frame)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print(LEAVE_SCREEN, end="", flush=True)
+
+
+# ---------------------------------------------------------------------------
 # Questions asked before drawing
 # ---------------------------------------------------------------------------
 
@@ -658,10 +699,9 @@ def parse_day_month(answer):
 
 
 def main():
-    epoch = read_epoch()
-    offset = zone_offset(load_zone(None), epoch)[0]
-    state = {"theme": 0, "now": local_datetime(epoch, offset)}
-    print(build_frame(state).render(THEMES[state["theme"]][1]))
+    state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None)}
+    run_clock(state)
+    print("¡Hasta luego! 👋")
 
 if __name__ == "__main__":
     main()
