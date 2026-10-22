@@ -22,8 +22,9 @@ def draw_dial(canvas: BrailleCanvas, direction: int = 1, turn: float = 0.0):
     for tick in range(60):
         angle = tick * 6 * direction + turn
         if tick % 5 == 0:
-            canvas.line(*(polar(cx, cy, radius * 0.86, angle) + polar(cx, cy, radius * 0.95, angle)),
-                        color="ink", thickness=0.5)
+            inner = polar(cx, cy, radius * 0.86, angle)
+            outer = polar(cx, cy, radius * 0.95, angle)
+            canvas.line(*(inner + outer), color="ink", thickness=0.5)
         else:
             canvas.dot(*polar(cx, cy, radius * 0.94, angle), color="muted")
     for hour in range(1, 13):
@@ -40,8 +41,8 @@ def draw_hands(canvas: BrailleCanvas, seconds_of_day: float,
     second = int(seconds_of_day % 60) * 6 * direction + turn
     canvas.line(cx, cy, *polar(cx, cy, radius * 0.48, hour), color="ink", thickness=1.5)
     canvas.line(cx, cy, *polar(cx, cy, radius * 0.76, minute), color="ink", thickness=0.5)
-    canvas.line(*(polar(cx, cy, radius * 0.18, second + 180) + polar(cx, cy, radius * 0.86, second)),
-                color="accent")
+    tail = polar(cx, cy, radius * 0.18, second + 180)
+    canvas.line(*(tail + polar(cx, cy, radius * 0.86, second)), color="accent")
     for ring in (0.5, 1.2, 2.0):
         canvas.circle(cx, cy, ring, "accent")
 
