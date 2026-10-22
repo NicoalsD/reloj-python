@@ -569,6 +569,58 @@ def time_in_words(hour, minute):
 
 
 # ---------------------------------------------------------------------------
+# Frame layout
+# ---------------------------------------------------------------------------
+
+WIDTH, HEIGHT = 100, 27
+CLOCK_COLUMNS, CLOCK_ROWS = 46, 23
+PANEL_LEFT, PANEL_RIGHT = 52, 97
+
+
+def mix(first, second, ratio):
+    """Blend two RGB colors."""
+    return tuple(int(a + (b - a) * ratio) for a, b in zip(first, second))
+
+
+def draw_border(screen, title, footer):
+    screen.put(0, 0, "╭" + "─" * (WIDTH - 2) + "╮", "frame")
+    for y in range(1, HEIGHT - 1):
+        screen.put(0, y, "│", "frame")
+        screen.put(WIDTH - 1, y, "│", "frame")
+    screen.put(0, HEIGHT - 1, "╰" + "─" * (WIDTH - 2) + "╯", "frame")
+    screen.put(3, 0, " " + title + " ", "highlight")
+    screen.put(3, HEIGHT - 1, " " + footer + " ", "muted")
+
+
+def draw_big_time(screen, y, content, palette):
+    """Block digits with a vertical gradient from 'highlight' to 'accent'."""
+    rows = big_text(content)
+    x = PANEL_LEFT + (PANEL_RIGHT - PANEL_LEFT - len(rows[0])) // 2
+    for index, row in enumerate(rows):
+        screen.put(x, y + index, row, mix(palette["highlight"], palette["accent"], index / 4))
+
+
+def section_title(screen, y, title):
+    line = "─" * ((PANEL_RIGHT - PANEL_LEFT - len(title) - 2) // 2)
+    screen.center(y, "{} {} {}".format(line, title, line), "frame", PANEL_LEFT, PANEL_RIGHT)
+
+
+def build_frame(state):
+    palette = THEMES[state["theme"]][1]
+    now = state["now"]
+    screen = Screen(WIDTH, HEIGHT)
+    draw_border(screen, "Reloj en Python", "Python puro · cero librerías")
+    canvas = Canvas(CLOCK_COLUMNS, CLOCK_ROWS)
+    draw_dial(canvas)
+    draw_hands(canvas, now["seconds_of_day"])
+    screen.draw_canvas(canvas, 3, 2)
+    draw_big_time(screen, 3, format_time(now), palette)
+    date = format_date(now)
+    screen.center(9, date[0].upper() + date[1:], "muted", PANEL_LEFT, PANEL_RIGHT)
+    return screen
+
+
+# ---------------------------------------------------------------------------
 # Questions asked before drawing
 # ---------------------------------------------------------------------------
 
@@ -607,16 +659,9 @@ def parse_day_month(answer):
 
 def main():
     epoch = read_epoch()
-    offset, _, zone_name = zone_offset(load_zone(None), epoch)
-    now = local_datetime(epoch, offset)
-    print("Hora local ({}): {} {}".format(zone_name, format_date(now), format_time(now)))
-    canvas = Canvas(44, 22)
-    draw_dial(canvas)
-    draw_hands(canvas, now["seconds_of_day"])
-    screen = Screen(48, 24)
-    screen.draw_canvas(canvas, 2, 1)
-    print(screen.render(THEMES[0][1]))
-    print("\n".join(big_text(format_time(now))))
+    offset = zone_offset(load_zone(None), epoch)[0]
+    state = {"theme": 0, "now": local_datetime(epoch, offset)}
+    print(build_frame(state).render(THEMES[state["theme"]][1]))
 
 if __name__ == "__main__":
     main()
