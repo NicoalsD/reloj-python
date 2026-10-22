@@ -636,6 +636,52 @@ def load_world():
     return world
 
 
+def format_duration(seconds):
+    seconds = int(seconds)
+    hours, minutes = seconds // 3600, seconds // 60 % 60
+    if hours:
+        return "{} h {:02d} min".format(hours, minutes)
+    return "{} min {:02d} s".format(minutes, seconds % 60)
+
+
+def draw_tool(screen, y, name, value, detail="", value_color="highlight"):
+    screen.put(PANEL_LEFT + 2, y, name, "muted")
+    screen.put(PANEL_LEFT + 15, y, value, value_color)
+    screen.put(PANEL_LEFT + 15 + len(value) + 2, y, detail, "muted")
+
+
+def draw_alarm(screen, y, state):
+    alarm = state["alarm"]
+    if alarm is None:
+        draw_tool(screen, y, "Alarma", "--:--", "sin programar", "muted")
+        return
+    if is_ringing(state):
+        draw_tool(screen, y, "Alarma", format_clock(alarm), "¡sonando!", "accent")
+        return
+    left = (alarm - state["now"]["seconds_of_day"]) % SECONDS_PER_DAY
+    draw_tool(screen, y, "Alarma", format_clock(alarm), "faltan " + format_duration(left))
+
+
+def update_alarm(state):
+    """Start ringing for one minute when the alarm time arrives (once per day)."""
+    alarm, now = state["alarm"], state["now"]
+    if alarm is None or state["alarm_day"] == now["days"]:
+        return
+    if alarm <= now["seconds_of_day"] < alarm + 60:
+        state["alarm_day"] = now["days"]
+        state["ringing_until"] = state["uptime"] + 60
+
+
+def is_ringing(state):
+    return state["ringing_until"] > state["uptime"]
+
+
+def draw_alarm_banner(screen, state):
+    message = " ¡ALARMA! Son las {} · Ctrl+C para apagarla ".format(format_clock(state["alarm"]))
+    flash = int(state["uptime"] * 2) % 2 == 0
+    screen.center(HEIGHT - 2, message, "accent" if flash else "highlight")
+
+
 def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
@@ -652,6 +698,10 @@ def build_frame(state):
     screen.center(11, "« " + time_in_words(now["hour"], now["minute"]) + " »", "ink",
                   PANEL_LEFT, PANEL_RIGHT)
     draw_world(screen, 13, state)
+    section_title(screen, 19, "Herramientas")
+    draw_alarm(screen, 20, state)
+    if is_ringing(state):
+        draw_alarm_banner(screen, state)
     return screen
 
 
@@ -686,8 +736,18 @@ def run_clock(state):
         next_frame = read_uptime()
         while True:
             update_time(state)
-            frame = build_frame(state).render(THEMES[state["theme"]][1])
-            print(HOME + frame, end="", flush=True)
+            update_alarm(state)
+            palette = THEMES[state["theme"]][1]
+            bell = ""
+            if is_ringing(state):
+                palette = dict(palette)
+                if int(state["uptime"] * 2) % 2 == 0:
+                    palette["frame"] = palette["accent"]
+                if int(state["uptime"]) != state["last_bell"]:
+                    state["last_bell"] = int(state["uptime"])
+                    bell = "\a"
+            frame = build_frame(state).render(palette)
+            print(HOME + frame + bell, end="", flush=True)
             next_frame = max(next_frame + FRAME_SECONDS, state["uptime"])
             wait_until(next_frame)
     except KeyboardInterrupt:
@@ -746,8 +806,14 @@ def choose_theme(state):
     state["theme"] = ask("  Tema: ", parse_theme, state["theme"])
 
 
+def choose_alarm(state):
+    state["alarm"] = ask("  Hora de la alarma (HH:MM, Enter para quitarla): ", parse_alarm, None)
+    state["alarm_day"] = None
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
+    ("2", "Programar o quitar la alarma", choose_alarm),
 ]
 
 
@@ -778,9 +844,13 @@ def show_menu(state):
 
 def main():
     state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
-             "world": load_world()}
+             "world": load_world(), "alarm": None, "alarm_day": None,
+             "ringing_until": 0.0, "last_bell": -1}
     while True:
         run_clock(state)
+        if is_ringing(state):
+            state["ringing_until"] = 0.0   # Ctrl+C while ringing just silences it
+            continue
         if not show_menu(state):
             break
     print("\n¡Hasta luego! 👋")
