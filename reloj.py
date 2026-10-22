@@ -561,6 +561,50 @@ def build_greeting(state):
                   font_family=SANS, fill=color("highlight"), font_weight="bold")
 
 
+CARD_X, CARD_Y, CARD_WIDTH, CARD_HEIGHT = 760, 355, 480, 360
+
+
+def switch_visibility(key, keys):
+    """<set> elements that show a panel when its tab is clicked and hide it otherwise.
+
+    SMIL ids are written without '-' because 'a-1.click' would read as an offset.
+    """
+    return [tag("set", attributeName="visibility", to="visible" if other == key else "hidden",
+                begin="tab{}.click".format(other), fill="freeze") for other in keys]
+
+
+def build_tabs(panels):
+    """Tab buttons plus one card per panel; only the first one starts visible."""
+    keys = [key for key, _, _ in panels]
+    width, gap = 112, 10
+    parts = [tag("rect", x=CARD_X, y=CARD_Y, width=CARD_WIDTH, height=CARD_HEIGHT, rx=18,
+                 fill=color("panel"), stroke=color("muted"), stroke_opacity=0.4)]
+    for index, (key, label, content) in enumerate(panels):
+        x = CARD_X + index * (width + gap)
+        visible = "visible" if index == 0 else "hidden"
+        active_outline = tag("rect", *switch_visibility(key, keys), x=x, y=CARD_Y - 50,
+                             width=width, height=38, rx=12, fill="none",
+                             stroke=color("highlight"), stroke_width=3, visibility=visible)
+        parts.append(tag("g",
+                         tag("rect", x=x, y=CARD_Y - 50, width=width, height=38, rx=12,
+                             fill=color("panel"), stroke=color("muted"), stroke_width=1.5),
+                         active_outline,
+                         text(label, x + width / 2, CARD_Y - 26, 14, font_weight="bold"),
+                         id="tab" + key, cursor="pointer"))
+        parts.append(tag("g", *([content] + switch_visibility(key, keys)), visibility=visible))
+    return tag("g", *parts)
+
+
+def build_panels(state):
+    center = CARD_X + CARD_WIDTH / 2
+    return build_tabs([
+        ("world", "🌎 Mundo", text("Relojes del mundo", center, 540, 22)),
+        ("stopwatch", "⏱️ Cronómetro", text("Cronómetro", center, 540, 22)),
+        ("pomodoro", "🍅 Pomodoro", text("Pomodoro", center, 540, 22)),
+        ("fun", "🎉 Divertido", text("Modo divertido", center, 540, 22)),
+    ])
+
+
 def build_svg(state):
     body = [
         tag("defs", build_palette(state.get("theme", 0))),
@@ -569,6 +613,7 @@ def build_svg(state):
         build_main_clock(state),
         build_digital(state),
         build_greeting(state),
+        build_panels(state),
         build_theme_buttons(),
     ]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
