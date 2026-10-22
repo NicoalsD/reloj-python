@@ -698,6 +698,35 @@ def draw_stopwatch(screen, y, state):
         draw_tool(screen, y, "Cronómetro", value, "detenido", "muted")
 
 
+POMODORO_SECONDS = 25 * 60
+BAR_PARTS = " ▏▎▍▌▋▊▉█"
+
+
+def progress_bar(ratio, width):
+    """Smooth bar using the eighth-width block characters."""
+    eighths = int(max(0.0, min(1.0, ratio)) * width * 8)
+    bar = "█" * (eighths // 8)
+    if len(bar) < width:
+        bar += BAR_PARTS[eighths % 8]
+    return bar + " " * (width - len(bar))
+
+
+def draw_pomodoro(screen, y, state):
+    end = state["pomo_end"]
+    if end is None:
+        draw_tool(screen, y, "Pomodoro", "25:00", "listo para enfocarte", "muted")
+        return
+    left = end - state["uptime"]
+    if left <= 0:
+        draw_tool(screen, y, "Pomodoro", "00:00", "¡Descansa 5 minutos!", "accent")
+        return
+    bar = progress_bar(1 - left / POMODORO_SECONDS, 18)
+    screen.put(PANEL_LEFT + 2, y, "Pomodoro", "muted")
+    screen.put(PANEL_LEFT + 15, y, "{:02d}:{:02d}".format(int(left) // 60, int(left) % 60),
+               "highlight")
+    screen.put(PANEL_LEFT + 22, y, "▕" + bar + "▏", "accent")
+
+
 def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
@@ -717,6 +746,7 @@ def build_frame(state):
     section_title(screen, 19, "Herramientas")
     draw_alarm(screen, 20, state)
     draw_stopwatch(screen, 21, state)
+    draw_pomodoro(screen, 22, state)
     if is_ringing(state):
         draw_alarm_banner(screen, state)
     return screen
@@ -756,6 +786,13 @@ def run_clock(state):
             update_alarm(state)
             palette = THEMES[state["theme"]][1]
             bell = ""
+            pomo_end = state["pomo_end"]
+            if pomo_end is not None and 0 <= state["uptime"] - pomo_end < 3:
+                if int(state["uptime"]) != state["last_bell"]:
+                    state["last_bell"] = int(state["uptime"])
+                    bell = "\a"
+            if pomo_end is not None and state["uptime"] - pomo_end > 300:
+                state["pomo_end"] = None   # the break is over
             if is_ringing(state):
                 palette = dict(palette)
                 if int(state["uptime"] * 2) % 2 == 0:
@@ -841,11 +878,16 @@ def reset_stopwatch(state):
     state["sw_started"], state["sw_saved"] = None, 0.0
 
 
+def toggle_pomodoro(state):
+    state["pomo_end"] = None if state["pomo_end"] is not None else read_uptime() + POMODORO_SECONDS
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
     ("2", "Programar o quitar la alarma", choose_alarm),
     ("3", "Cronómetro: iniciar o pausar", toggle_stopwatch),
     ("4", "Cronómetro: reiniciar", reset_stopwatch),
+    ("5", "Pomodoro de 25 minutos: iniciar o cancelar", toggle_pomodoro),
 ]
 
 
@@ -877,7 +919,8 @@ def show_menu(state):
 def main():
     state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
              "world": load_world(), "alarm": None, "alarm_day": None,
-             "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0}
+             "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0,
+             "pomo_end": None}
     while True:
         run_clock(state)
         if is_ringing(state):
