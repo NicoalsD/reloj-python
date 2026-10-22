@@ -724,13 +724,44 @@ def build_pomodoro_panel():
                build_button("pomoReset", "↺ Reiniciar", cx + 10, CARD_Y + 300))
 
 
+HOUR_WORDS = ["doce", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+              "nueve", "diez", "once"]
+NUMBER_WORDS = ["", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve",
+                "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete",
+                "dieciocho", "diecinueve", "veinte", "veintiuno", "veintidós", "veintitrés",
+                "veinticuatro", "veinticinco", "veintiséis", "veintisiete", "veintiocho",
+                "veintinueve"]
+
+
+def time_in_words(hour, minute):
+    """Spanish spoken time: 'Son las tres y cuarto', 'Es la una menos diez'."""
+    if minute <= 30:
+        target = hour % 12
+        special = {0: "en punto", 15: "y cuarto", 30: "y media"}
+        tail = special[minute] if minute in special else "y " + NUMBER_WORDS[minute]
+    else:
+        target = (hour + 1) % 12
+        tail = "menos cuarto" if minute == 45 else "menos " + NUMBER_WORDS[60 - minute]
+    start = "Es la una" if target == 1 else "Son las " + HOUR_WORDS[target]
+    return start + " " + tail
+
+
+def build_fun_panel(state):
+    cx = CARD_X + CARD_WIDTH / 2
+    seconds = state["now"]["seconds_of_day"]
+    phrases = [time_in_words(minute // 60, minute % 60) for minute in range(24 * 60)]
+    return tag("g",
+               text("La hora en palabras", cx, CARD_Y + 35, 15, fill=color("muted")),
+               ticker(phrases, cx, CARD_Y + 70, 26, 60, past(seconds), width=CARD_WIDTH - 20,
+                      font_family=SANS, font_weight="bold", fill=color("highlight")))
+
+
 def build_panels(state):
-    center = CARD_X + CARD_WIDTH / 2
     return build_tabs([
         ("world", "🌎 Mundo", build_world_panel(state)),
         ("stopwatch", "⏱️ Cronómetro", build_stopwatch_panel()),
         ("pomodoro", "🍅 Pomodoro", build_pomodoro_panel()),
-        ("fun", "🎉 Divertido", text("Modo divertido", center, 540, 22)),
+        ("fun", "🎉 Divertido", build_fun_panel(state)),
     ])
 
 
