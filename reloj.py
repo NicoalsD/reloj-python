@@ -283,6 +283,35 @@ def load_zone(name):
     return parse_tzif(LOCAL_ZONE_PATH if name is None else ZONEINFO_DIR + name)
 
 
+# ---------------------------------------------------------------------------
+# Trigonometry with Taylor series
+# ---------------------------------------------------------------------------
+
+PI = 3.141592653589793
+
+
+def sin(angle):
+    """Sine using its Taylor series after reducing the angle to [-pi, pi]."""
+    angle = angle % (2 * PI)
+    if angle > PI:
+        angle -= 2 * PI
+    term = total = angle
+    for step in range(1, 12):
+        term *= -angle * angle / ((2 * step) * (2 * step + 1))
+        total += term
+    return total
+
+
+def cos(angle):
+    return sin(angle + PI / 2)
+
+
+def polar(center_x, center_y, radius, degrees):
+    """Point on a clock dial: 0 degrees is 12 o'clock, growing clockwise."""
+    radians = degrees * PI / 180
+    return center_x + radius * sin(radians), center_y - radius * cos(radians)
+
+
 def main():
     print("Reloj en Python")
     epoch = read_epoch()
