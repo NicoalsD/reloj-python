@@ -83,7 +83,8 @@ class ClockApp:
             MenuOption("3", "Cronómetro: iniciar o pausar",
                        lambda: tools.stopwatch.toggle(self.clock.uptime())),
             MenuOption("4", "Cronómetro: reiniciar", tools.stopwatch.reset),
-            MenuOption("5", "Pomodoro (25 min): iniciar o cancelar",
+            MenuOption("5", "Pomodoro ({} min): iniciar o cancelar".format(
+                config.POMODORO_FOCUS_SECONDS // 60),
                        lambda: tools.pomodoro.toggle(self.clock.uptime())),
             MenuOption("6", "Cambiar la fecha de la cuenta atrás", self._choose_countdown),
             MenuOption("7", "Reloj al revés: activar o desactivar", tools.effects.toggle_reverse),
