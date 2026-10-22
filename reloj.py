@@ -749,6 +749,18 @@ def draw_countdown(screen, y, state):
     draw_tool(screen, y, "Cuenta atrás", value, title)
 
 
+SPIN_SECONDS = 1.5
+
+
+def spin_angle(state):
+    """Whole-dial rotation for the '¡Girar!' trick, eased in and out."""
+    progress = (state["uptime"] - state["spin_start"]) / SPIN_SECONDS
+    if not 0 <= progress < 1:
+        return 0.0
+    eased = progress * progress * (3 - 2 * progress)
+    return 360.0 * eased
+
+
 def build_frame(state):
     palette = THEMES[state["theme"]][1]
     now = state["now"]
@@ -756,8 +768,9 @@ def build_frame(state):
     draw_border(screen, "Reloj en Python", "Ctrl+C: menú · Python puro, cero librerías")
     canvas = Canvas(CLOCK_COLUMNS, CLOCK_ROWS)
     direction = -1 if state["reverse"] else 1
-    draw_dial(canvas, direction)
-    draw_hands(canvas, now["seconds_of_day"], direction)
+    turn = spin_angle(state)
+    draw_dial(canvas, direction, turn)
+    draw_hands(canvas, now["seconds_of_day"], direction, turn)
     if state["reverse"]:
         screen.center(HEIGHT - 2, "~ modo al revés ~", "muted", 3, 3 + CLOCK_COLUMNS)
     screen.draw_canvas(canvas, 3, 2)
@@ -917,6 +930,10 @@ def toggle_reverse(state):
     state["reverse"] = not state["reverse"]
 
 
+def spin_clock(state):
+    state["spin_start"] = read_uptime()
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
     ("2", "Programar o quitar la alarma", choose_alarm),
@@ -925,6 +942,7 @@ MENU = [
     ("5", "Pomodoro de 25 minutos: iniciar o cancelar", toggle_pomodoro),
     ("6", "Cambiar la fecha de la cuenta atrás", choose_countdown),
     ("7", "Reloj al revés: activar o desactivar", toggle_reverse),
+    ("8", "¡Girar el reloj!", spin_clock),
 ]
 
 
@@ -958,7 +976,7 @@ def main():
              "world": load_world(), "alarm": None, "alarm_day": None,
              "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0,
              "pomo_end": None, "countdown": (24, 12),
-             "reverse": False}
+             "reverse": False, "spin_start": -10.0}
     while True:
         run_clock(state)
         if is_ringing(state):
