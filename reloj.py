@@ -755,8 +755,11 @@ def build_frame(state):
     screen = Screen(WIDTH, HEIGHT)
     draw_border(screen, "Reloj en Python", "Ctrl+C: menú · Python puro, cero librerías")
     canvas = Canvas(CLOCK_COLUMNS, CLOCK_ROWS)
-    draw_dial(canvas)
-    draw_hands(canvas, now["seconds_of_day"])
+    direction = -1 if state["reverse"] else 1
+    draw_dial(canvas, direction)
+    draw_hands(canvas, now["seconds_of_day"], direction)
+    if state["reverse"]:
+        screen.center(HEIGHT - 2, "~ modo al revés ~", "muted", 3, 3 + CLOCK_COLUMNS)
     screen.draw_canvas(canvas, 3, 2)
     draw_big_time(screen, 3, format_time(now), palette)
     date = format_date(now)
@@ -910,6 +913,10 @@ def choose_countdown(state):
                              parse_day_month, (24, 12))
 
 
+def toggle_reverse(state):
+    state["reverse"] = not state["reverse"]
+
+
 MENU = [
     ("1", "Cambiar tema", choose_theme),
     ("2", "Programar o quitar la alarma", choose_alarm),
@@ -917,6 +924,7 @@ MENU = [
     ("4", "Cronómetro: reiniciar", reset_stopwatch),
     ("5", "Pomodoro de 25 minutos: iniciar o cancelar", toggle_pomodoro),
     ("6", "Cambiar la fecha de la cuenta atrás", choose_countdown),
+    ("7", "Reloj al revés: activar o desactivar", toggle_reverse),
 ]
 
 
@@ -949,7 +957,8 @@ def main():
     state = {"theme": 0, "boot": read_boot_time(), "zone": load_zone(None),
              "world": load_world(), "alarm": None, "alarm_day": None,
              "ringing_until": 0.0, "last_bell": -1, "sw_started": None, "sw_saved": 0.0,
-             "pomo_end": None, "countdown": (24, 12)}
+             "pomo_end": None, "countdown": (24, 12),
+             "reverse": False}
     while True:
         run_clock(state)
         if is_ringing(state):
