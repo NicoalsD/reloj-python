@@ -517,6 +517,26 @@ def build_digital(state):
     return tag("g", *parts)
 
 
+def greeting(hour):
+    if hour < 6:
+        return "¡A dormir, búho nocturno! 🦉"
+    if hour < 12:
+        return "¡Buenos días! ☀️"
+    if hour < 14:
+        return "¡Hora de almorzar! 🍽️"
+    if hour < 19:
+        return "¡Buenas tardes! 🌤️"
+    return "¡Buenas noches! 🌙"
+
+
+def build_greeting(state):
+    """Greeting that changes on its own every hour."""
+    seconds = state["now"]["seconds_of_day"]
+    labels = [greeting(hour) for hour in range(24)]
+    return ticker(labels, PANEL_X, 268, 26, 3600, past(seconds), width=480,
+                  font_family=SANS, fill=color("highlight"), font_weight="bold")
+
+
 def build_svg(state):
     body = [
         tag("defs", build_palette()),
@@ -524,6 +544,7 @@ def build_svg(state):
         build_header(),
         build_main_clock(state),
         build_digital(state),
+        build_greeting(state),
     ]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             + tag("svg", *body, xmlns="http://www.w3.org/2000/svg",
