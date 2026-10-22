@@ -764,7 +764,46 @@ def build_fun_panel(state):
                text("Dale una vuelta al reloj", CARD_X + 355, CARD_Y + 200, 14,
                     fill=color("muted")),
                text("(o haz clic en la esfera)", CARD_X + 355, CARD_Y + 220, 14,
-                    fill=color("muted")))
+                    fill=color("muted")),
+               build_countdown(state, cx, CARD_Y + 290))
+
+
+def countdown_ticker(remaining, unit, count, x, y, size, **style):
+    """Descending odometer synced so it ticks exactly when 'remaining' crosses a unit."""
+    whole = int(remaining // unit)
+    fraction = remaining / unit - whole
+    index = count - 1 - whole % count
+    labels = [("{:02d}" if count <= 60 else "{}").format(count - 1 - position)
+              for position in range(count)]
+    return ticker(labels, x, y, size, unit, past((index + 1 - fraction) * unit), **style)
+
+
+def build_countdown(state, cx, y):
+    day, month = state.get("countdown") or (24, 12)
+    now = state["now"]
+    title = "{} de {}".format(day, MONTH_NAMES[month - 1])
+    if (month, day) == (now["month"], now["day"]):
+        return text("🎉 ¡Hoy es {}! 🎉".format(title), cx, y + 20, 26, font_weight="bold",
+                    fill=color("highlight"))
+    year = now["year"] + (1 if (month, day) < (now["month"], now["day"]) else 0)
+    while days_in_month(year, month) < day:
+        year += 1
+    target = days_from_civil(year, month, day) * SECONDS_PER_DAY - state["offset"]
+    remaining = target - state["epoch"]
+    days = int(remaining // SECONDS_PER_DAY)
+    size = 32
+    style = {"font_weight": "bold"}
+    return tag("g",
+               text("⏳ Cuenta regresiva para el " + title, cx, y, 16, fill=color("muted")),
+               countdown_ticker(remaining, SECONDS_PER_DAY, days + 1, cx - 110, y + 45, size,
+                                **style),
+               text("días", cx - 52, y + 45, 16, fill=color("muted")),
+               countdown_ticker(remaining, 3600, 24, cx + 5, y + 45, size, **style),
+               text(":", cx + 37, y + 43, size, font_family=MONO),
+               countdown_ticker(remaining, 60, 60, cx + 70, y + 45, size, **style),
+               text(":", cx + 102, y + 43, size, font_family=MONO),
+               countdown_ticker(remaining, 1, 60, cx + 135, y + 45, size,
+                                fill=color("accent"), **style))
 
 
 def build_reverse_clock(cx, cy, seconds):
@@ -885,17 +924,28 @@ def parse_alarm(answer):
     return hours * 3600 + minutes * 60
 
 
+def parse_day_month(answer):
+    """'24/12' -> (24, 12), validated against a leap year so 29/02 is allowed."""
+    day, month = (int(part) for part in answer.split("/"))
+    if not (1 <= month <= 12 and 1 <= day <= days_in_month(2024, month)):
+        raise ValueError(answer)
+    return day, month
+
+
 def main():
     print("🕰️  Reloj en Python\n")
     names = " ".join("{}) {}".format(index + 1, name) for index, (name, _) in enumerate(THEMES))
     theme = ask("Tema inicial: {} [1]: ".format(names), parse_theme, 0)
     alarm = ask("Hora de la alarma (HH:MM, Enter para ninguna): ", parse_alarm, None)
+    countdown = ask("Fecha para la cuenta regresiva (DD/MM, Enter para Navidad): ",
+                    parse_day_month, (24, 12))
 
     # Read the clock only after the questions so the drawing starts on time.
     epoch = read_epoch()
     offset, _, zone_name = zone_offset(load_zone(None), epoch)
     now = local_datetime(epoch, offset)
-    state = {"epoch": epoch, "now": now, "theme": theme, "alarm": alarm}
+    state = {"epoch": epoch, "offset": offset, "now": now, "theme": theme, "alarm": alarm,
+             "countdown": countdown}
     path = output_path()
     with open(path, "w", encoding="utf-8") as target:
         target.write(build_svg(state))
